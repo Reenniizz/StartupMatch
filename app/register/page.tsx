@@ -31,6 +31,10 @@ export default function RegisterPage() {
     lookingFor: [] as string[],
     skills: ["", "", ""] as string[], // Start with 3 empty skills
     agreeToTerms: false,
+    // Legal acceptance
+    acceptTerms: false,
+    acceptPrivacy: false,
+    acceptMarketing: false,
   });
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -255,8 +259,12 @@ export default function RegisterPage() {
       newErrors.skills = "Ingresa al menos 3 habilidades";
     }
     
-    if (!formData.agreeToTerms) {
-      newErrors.agreeToTerms = "Debes aceptar los términos y condiciones";
+    if (!formData.acceptTerms) {
+      newErrors.acceptTerms = "Debes aceptar los términos y condiciones";
+    }
+    
+    if (!formData.acceptPrivacy) {
+      newErrors.acceptPrivacy = "Debes aceptar la política de privacidad";
     }
     
     setErrors(newErrors);
@@ -936,60 +944,103 @@ export default function RegisterPage() {
                     )}
                   </div>
 
-                  <div className="bg-gray-50 rounded-lg p-4 border border-gray-100">
-                    <motion.label 
-                      className={`flex items-start gap-3 cursor-pointer group ${
-                        formData.agreeToTerms ? 'text-gray-800' : 'text-gray-600'
-                      }`}
-                      whileHover={{ scale: 1.01 }}
-                      whileTap={{ scale: 0.99 }}
-                    >
-                      <div className="relative mt-0.5">
+                  {/* Terms and Conditions Section */}
+                  <div className="space-y-4 pt-6 border-t border-gray-200">
+                    <div className="space-y-3">
+                      {/* Terms of Service */}
+                      <div className="flex items-start gap-3">
                         <input
                           type="checkbox"
-                          name="agreeToTerms"
-                          checked={formData.agreeToTerms}
-                          onChange={handleInputChange}
-                          className="sr-only"
+                          id="acceptTerms"
+                          checked={formData.acceptTerms || false}
+                          onChange={(e) => setFormData(prev => ({...prev, acceptTerms: e.target.checked}))}
+                          className="mt-1 h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
                         />
-                        <div className={`w-4 h-4 rounded border-2 transition-all duration-200 ${
-                          formData.agreeToTerms
-                            ? 'bg-gradient-to-r from-blue-500 to-green-500 border-blue-500'
-                            : 'border-gray-300 group-hover:border-blue-400'
-                        }`}>
-                          {formData.agreeToTerms && (
-                            <motion.div
-                              initial={{ scale: 0, rotate: -180 }}
-                              animate={{ scale: 1, rotate: 0 }}
-                              transition={{ type: "spring", stiffness: 300, damping: 10 }}
-                            >
-                              <svg className="w-2.5 h-2.5 text-white mx-auto mt-0.5" fill="currentColor" viewBox="0 0 20 20">
-                                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                              </svg>
-                            </motion.div>
+                        <label htmlFor="acceptTerms" className="text-sm text-gray-700 leading-5">
+                          Acepto los{' '}
+                          <Link
+                            href="/terms"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-blue-600 hover:text-blue-700 underline font-medium"
+                          >
+                            términos y condiciones de uso
+                          </Link>
+                        </label>
+                      </div>
+                      
+                      {/* Privacy Policy */}
+                      <div className="flex items-start gap-3">
+                        <input
+                          type="checkbox"
+                          id="acceptPrivacy"
+                          checked={formData.acceptPrivacy || false}
+                          onChange={(e) => setFormData(prev => ({...prev, acceptPrivacy: e.target.checked}))}
+                          className="mt-1 h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                        />
+                        <label htmlFor="acceptPrivacy" className="text-sm text-gray-700 leading-5">
+                          Acepto la{' '}
+                          <Link
+                            href="/privacy"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-blue-600 hover:text-blue-700 underline font-medium"
+                          >
+                            política de privacidad
+                          </Link>{' '}
+                          y el tratamiento de mis datos personales
+                        </label>
+                      </div>
+
+                      {/* Marketing Communications (Optional) */}
+                      <div className="flex items-start gap-3">
+                        <input
+                          type="checkbox"
+                          id="acceptMarketing"
+                          checked={formData.acceptMarketing || false}
+                          onChange={(e) => setFormData(prev => ({...prev, acceptMarketing: e.target.checked}))}
+                          className="mt-1 h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                        />
+                        <label htmlFor="acceptMarketing" className="text-sm text-gray-700 leading-5">
+                          <span className="text-gray-500">(Opcional)</span> Acepto recibir comunicaciones promocionales y newsletters sobre nuevas funcionalidades
+                        </label>
+                      </div>
+                    </div>
+
+                    {/* Error Messages */}
+                    {(errors.acceptTerms || errors.acceptPrivacy) && (
+                      <motion.div 
+                        className="bg-red-50 border border-red-200 rounded-lg p-3"
+                        initial={{ opacity: 0, scale: 0.95 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                      >
+                        <div className="space-y-1">
+                          {errors.acceptTerms && (
+                            <p className="text-sm text-red-800 flex items-center gap-1">
+                              <div className="w-1 h-1 bg-red-500 rounded-full"></div>
+                              {errors.acceptTerms}
+                            </p>
+                          )}
+                          {errors.acceptPrivacy && (
+                            <p className="text-sm text-red-800 flex items-center gap-1">
+                              <div className="w-1 h-1 bg-red-500 rounded-full"></div>
+                              {errors.acceptPrivacy}
+                            </p>
                           )}
                         </div>
-                      </div>
-                      <div className="text-xs leading-relaxed">
-                        <span className="font-medium">Acepto los</span>{" "}
-                        <Link href="#" className="text-blue-600 hover:text-blue-700 font-medium underline decoration-blue-200 hover:decoration-blue-400 transition-colors">
-                          términos y condiciones
-                        </Link>{" "}
-                        <span className="font-medium">y la</span>{" "}
-                        <Link href="#" className="text-blue-600 hover:text-blue-700 font-medium underline decoration-blue-200 hover:decoration-blue-400 transition-colors">
-                          política de privacidad
-                        </Link>
-                      </div>
-                    </motion.label>
-                    {errors.agreeToTerms && (
-                      <motion.p
-                        initial={{ opacity: 0, y: -5 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        className="mt-2 text-xs text-red-600 flex items-center gap-1"
+                      </motion.div>
+                    )}
+
+                    {(!formData.acceptTerms || !formData.acceptPrivacy) && (
+                      <motion.div 
+                        className="bg-amber-50 border border-amber-200 rounded-lg p-3"
+                        initial={{ opacity: 0, scale: 0.95 }}
+                        animate={{ opacity: 1, scale: 1 }}
                       >
-                        <div className="w-1 h-1 bg-red-500 rounded-full"></div>
-                        {errors.agreeToTerms}
-                      </motion.p>
+                        <p className="text-sm text-amber-800">
+                          ⚠️ Debes aceptar los términos y condiciones y la política de privacidad para continuar
+                        </p>
+                      </motion.div>
                     )}
                   </div>
                 </motion.div>

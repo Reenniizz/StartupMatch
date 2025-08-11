@@ -18,8 +18,8 @@ const Footer = () => {
       { name: "Prensa", href: "#" },
     ],
     legal: [
-      { name: "Política de privacidad", href: "#" },
-      { name: "Términos de uso", href: "#" },
+      { name: "Política de privacidad", href: "/privacy" },
+      { name: "Términos de uso", href: "/terms" },
       { name: "Cookies", href: "#" },
       { name: "GDPR", href: "#" },
     ],
