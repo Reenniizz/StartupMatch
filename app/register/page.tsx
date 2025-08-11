@@ -822,7 +822,7 @@ export default function RegisterPage() {
                         animate={{ opacity: 1, y: 0 }}
                         className="mt-2 text-xs text-red-600 flex items-center gap-1"
                       >
-                        <div className="w-1 h-1 bg-red-500 rounded-full"></div>
+                        <span className="w-1 h-1 bg-red-500 rounded-full inline-block"></span>
                         {errors.lookingFor}
                       </motion.p>
                     )}
@@ -938,7 +938,7 @@ export default function RegisterPage() {
                         animate={{ opacity: 1, y: 0 }}
                         className="mt-1 text-xs text-red-600 flex items-center gap-1"
                       >
-                        <div className="w-1 h-1 bg-red-500 rounded-full"></div>
+                        <span className="w-1 h-1 bg-red-500 rounded-full inline-block"></span>
                         {errors.skills}
                       </motion.p>
                     )}
@@ -1017,13 +1017,13 @@ export default function RegisterPage() {
                         <div className="space-y-1">
                           {errors.acceptTerms && (
                             <p className="text-sm text-red-800 flex items-center gap-1">
-                              <div className="w-1 h-1 bg-red-500 rounded-full"></div>
+                              <span className="w-1 h-1 bg-red-500 rounded-full inline-block"></span>
                               {errors.acceptTerms}
                             </p>
                           )}
                           {errors.acceptPrivacy && (
                             <p className="text-sm text-red-800 flex items-center gap-1">
-                              <div className="w-1 h-1 bg-red-500 rounded-full"></div>
+                              <span className="w-1 h-1 bg-red-500 rounded-full inline-block"></span>
                               {errors.acceptPrivacy}
                             </p>
                           )}
