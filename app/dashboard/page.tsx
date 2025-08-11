@@ -10,6 +10,7 @@ import {
   Menu, 
   ChevronLeft,
   User,
+  Users,
   Bell,
   Moon,
   Sun,
@@ -33,6 +34,7 @@ import { Badge } from "@/components/ui/badge";
 const sidebarItems = [
   { id: "dashboard", label: "Dashboard", icon: Home, href: "/dashboard" },
   { id: "matches", label: "Matches", icon: Heart, href: "/matches" },
+  { id: "grupos", label: "Grupos", icon: Users, href: "/grupos", badge: "5" },
   { id: "explore", label: "Explorar", icon: Search, href: "/explore" },
   { id: "favorites", label: "Favoritos", icon: Star, href: "/favorites" },
   { id: "messages", label: "Mensajes", icon: MessageSquare, href: "/messages", badge: "3" },
@@ -524,6 +526,118 @@ export default function DashboardPage() {
                         Completa tu perfil para mejores matches
                       </p>
                     </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+
+            {/* Grupos Populares */}
+            <motion.div
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.6 }}
+            >
+              <Card className={`transition-colors duration-300 ${
+                isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
+              }`}>
+                <CardHeader>
+                  <CardTitle className={`flex items-center justify-between transition-colors duration-300 ${
+                    isDarkMode ? 'text-white' : 'text-gray-900'
+                  }`}>
+                    <div className="flex items-center">
+                      <Users className="mr-2 h-5 w-5" />
+                      Grupos Populares
+                    </div>
+                    <Link 
+                      href="/grupos" 
+                      className="text-sm text-blue-600 hover:text-blue-700 transition-colors"
+                    >
+                      Ver todos
+                    </Link>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    {/* Grupo 1 */}
+                    <Link href="/grupos">
+                      <motion.div 
+                        className={`flex items-center space-x-3 p-3 rounded-lg transition-all duration-300 hover:scale-105 cursor-pointer ${
+                          isDarkMode ? 'bg-emerald-900/20 hover:bg-emerald-900/30' : 'bg-emerald-50 hover:bg-emerald-100'
+                        }`}
+                        whileHover={{ scale: 1.02 }}
+                      >
+                        <div className="w-10 h-10 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-lg flex items-center justify-center">
+                          <span className="text-white font-bold text-sm">FT</span>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className={`text-sm font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                            Fundadores FinTech México
+                          </p>
+                          <p className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                            127 miembros • 5 nuevos mensajes
+                          </p>
+                        </div>
+                        <div className={`px-2 py-1 rounded-full text-xs ${
+                          isDarkMode ? 'bg-emerald-800 text-emerald-300' : 'bg-emerald-100 text-emerald-700'
+                        }`}>
+                          Activo
+                        </div>
+                      </motion.div>
+                    </Link>
+
+                    {/* Grupo 2 */}
+                    <Link href="/grupos">
+                      <motion.div 
+                        className={`flex items-center space-x-3 p-3 rounded-lg transition-all duration-300 hover:scale-105 cursor-pointer ${
+                          isDarkMode ? 'bg-purple-900/20 hover:bg-purple-900/30' : 'bg-purple-50 hover:bg-purple-100'
+                        }`}
+                        whileHover={{ scale: 1.02 }}
+                      >
+                        <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-lg flex items-center justify-center">
+                          <span className="text-white font-bold text-sm">AI</span>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className={`text-sm font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                            AI Developers Network
+                          </p>
+                          <p className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                            234 miembros • Evento mañana
+                          </p>
+                        </div>
+                        <div className={`px-2 py-1 rounded-full text-xs ${
+                          isDarkMode ? 'bg-blue-800 text-blue-300' : 'bg-blue-100 text-blue-700'
+                        }`}>
+                          Unirse
+                        </div>
+                      </motion.div>
+                    </Link>
+
+                    {/* Grupo 3 */}
+                    <Link href="/grupos">
+                      <motion.div 
+                        className={`flex items-center space-x-3 p-3 rounded-lg transition-all duration-300 hover:scale-105 cursor-pointer ${
+                          isDarkMode ? 'bg-orange-900/20 hover:bg-orange-900/30' : 'bg-orange-50 hover:bg-orange-100'
+                        }`}
+                        whileHover={{ scale: 1.02 }}
+                      >
+                        <div className="w-10 h-10 bg-gradient-to-br from-orange-500 to-red-600 rounded-lg flex items-center justify-center">
+                          <span className="text-white font-bold text-sm">PS</span>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className={`text-sm font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                            Startups Pre-Seed
+                          </p>
+                          <p className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                            89 miembros • 2 nuevos mensajes
+                          </p>
+                        </div>
+                        <div className={`px-2 py-1 rounded-full text-xs ${
+                          isDarkMode ? 'bg-green-800 text-green-300' : 'bg-green-100 text-green-700'
+                        }`}>
+                          Miembro
+                        </div>
+                      </motion.div>
+                    </Link>
                   </div>
                 </CardContent>
               </Card>

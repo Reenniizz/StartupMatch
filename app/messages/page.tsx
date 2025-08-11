@@ -19,11 +19,23 @@ import {
   CheckCheck,
   Clock,
   Star,
-  Archive
+  Archive,
+  Users,
+  Plus,
+  X,
+  Globe,
+  Lock,
+  Hash
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 
 // Mock data for conversations
 const mockConversations = [
@@ -36,7 +48,8 @@ const mockConversations = [
     timestamp: "2 min",
     unread: 2,
     online: true,
-    isMatch: true
+    isMatch: true,
+    type: "individual"
   },
   {
     id: 2,
@@ -47,7 +60,8 @@ const mockConversations = [
     timestamp: "1h",
     unread: 0,
     online: false,
-    isMatch: true
+    isMatch: true,
+    type: "individual"
   },
   {
     id: 3,
@@ -58,7 +72,8 @@ const mockConversations = [
     timestamp: "3h",
     unread: 1,
     online: true,
-    isMatch: true
+    isMatch: true,
+    type: "individual"
   },
   {
     id: 4,
@@ -69,7 +84,64 @@ const mockConversations = [
     timestamp: "1d",
     unread: 0,
     online: false,
-    isMatch: false
+    isMatch: false,
+    type: "individual"
+  }
+];
+
+// Mock data for group conversations
+const mockGroupConversations = [
+  {
+    id: 101,
+    name: "Founders FinTech LATAM",
+    description: "Red de fundadores FinTech en Latinoamérica",
+    avatar: "FF",
+    lastMessage: "Ana: Nueva regulación en México, ¿opiniones?",
+    timestamp: "5 min",
+    unread: 3,
+    memberCount: 24,
+    isPrivate: false,
+    type: "group",
+    category: "Industria"
+  },
+  {
+    id: 102,
+    name: "React & Next.js Devs",
+    description: "Desarrolladores especializados en React y Next.js",
+    avatar: "RN",
+    lastMessage: "Carlos: Alguien tiene experiencia con App Router?",
+    timestamp: "15 min",
+    unread: 1,
+    memberCount: 18,
+    isPrivate: false,
+    type: "group",
+    category: "Tecnología"
+  },
+  {
+    id: 103,
+    name: "Seed Stage Founders",
+    description: "Fundadores en etapa de seed funding",
+    avatar: "SS",
+    lastMessage: "María: Compartiendo pitch deck template",
+    timestamp: "1h",
+    unread: 0,
+    memberCount: 12,
+    isPrivate: true,
+    type: "group",
+    category: "Stage"
+  },
+  {
+    id: 104,
+    name: "México City Startup Hub",
+    description: "Comunidad de startups en CDMX",
+    avatar: "MC",
+    lastMessage: "Luis: Evento de networking este viernes",
+    timestamp: "2h",
+    unread: 2,
+    memberCount: 35,
+    isPrivate: false,
+    type: "group",
+    category: "Ubicación"
   }
 ];
 
@@ -116,10 +188,32 @@ export default function MessagesPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
   const [conversations, setConversations] = useState(mockConversations);
+  const [groupConversations, setGroupConversations] = useState(mockGroupConversations);
   const [activeConversation, setActiveConversation] = useState(1);
+  const [activeConversationType, setActiveConversationType] = useState('individual');
   const [messages, setMessages] = useState(mockMessages);
   const [newMessage, setNewMessage] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
+  const [showCreateGroup, setShowCreateGroup] = useState(false);
+  const [viewMode, setViewMode] = useState('all'); // 'all', 'individual', 'groups'
+  
+  // Estados para crear grupo
+  const [groupForm, setGroupForm] = useState({
+    name: "",
+    description: "", 
+    category: "",
+    isPrivate: false,
+    tags: ""
+  });
+
+  const categories = [
+    "Industria",
+    "Tecnología", 
+    "Stage",
+    "Ubicación",
+    "Comunidad",
+    "Inversión"
+  ];
 
   // Redirect if not authenticated
   useEffect(() => {
@@ -127,6 +221,69 @@ export default function MessagesPage() {
       router.push("/login");
     }
   }, [user, loading, router]);
+
+  const createGroup = () => {
+    if (groupForm.name.trim() && groupForm.description.trim()) {
+      // Aquí normalmente enviarías los datos al backend
+      console.log('Creando grupo:', groupForm);
+      
+      // Simular éxito y redirigir a grupos
+      setShowCreateGroup(false);
+      setGroupForm({
+        name: "",
+        description: "",
+        category: "",
+        isPrivate: false, 
+        tags: ""
+      });
+      
+      // Redirigir a la página de grupos
+      router.push("/grupos");
+    }
+  };
+
+  // Combinar y filtrar conversaciones
+  const getAllConversations = () => {
+    const allConvs = [...conversations, ...groupConversations];
+    return allConvs.sort((a, b) => {
+      // Ordenar por timestamp (más reciente primero)
+      const timeA = a.timestamp.includes('min') ? 1 : a.timestamp.includes('h') ? 2 : 3;
+      const timeB = b.timestamp.includes('min') ? 1 : b.timestamp.includes('h') ? 2 : 3;
+      return timeA - timeB;
+    });
+  };
+
+  const getFilteredConversations = () => {
+    let filteredConvs = [];
+    
+    switch (viewMode) {
+      case 'individual':
+        filteredConvs = conversations;
+        break;
+      case 'groups':
+        filteredConvs = groupConversations;
+        break;
+      default:
+        filteredConvs = getAllConversations();
+    }
+
+    // Aplicar filtro de búsqueda
+    if (searchQuery.trim()) {
+      filteredConvs = filteredConvs.filter(conv =>
+        conv.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (conv.type === 'individual' && (conv as any).company && (conv as any).company.toLowerCase().includes(searchQuery.toLowerCase())) ||
+        (conv.type === 'group' && (conv as any).description && (conv as any).description.toLowerCase().includes(searchQuery.toLowerCase()))
+      );
+    }
+
+    return filteredConvs;
+  };
+
+  const selectConversation = (id: number, type: string) => {
+    setActiveConversation(id);
+    setActiveConversationType(type);
+    // Aquí cargarías los mensajes específicos del grupo o conversación
+  };
 
   const sendMessage = () => {
     if (newMessage.trim()) {
@@ -160,12 +317,9 @@ export default function MessagesPage() {
     }
   };
 
-  const filteredConversations = conversations.filter(conv =>
-    conv.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    conv.company.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredConversations = getFilteredConversations();
 
-  const activeConv = conversations.find(c => c.id === activeConversation);
+  const activeConv = [...conversations, ...groupConversations].find(c => c.id === activeConversation);
 
   if (loading) {
     return (
@@ -198,9 +352,108 @@ export default function MessagesPage() {
               </h1>
             </div>
 
-            <Badge variant="secondary">
-              {conversations.reduce((acc, conv) => acc + conv.unread, 0)} nuevos
-            </Badge>
+            <div className="flex items-center space-x-3">
+              <Dialog open={showCreateGroup} onOpenChange={setShowCreateGroup}>
+                <DialogTrigger asChild>
+                  <Button variant="outline" size="sm">
+                    <Users className="h-4 w-4 mr-2" />
+                    Crear Grupo
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-md">
+                  <DialogHeader>
+                    <DialogTitle>Crear Nuevo Grupo</DialogTitle>
+                  </DialogHeader>
+                  
+                  <div className="space-y-4 py-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="groupName">Nombre del Grupo *</Label>
+                      <Input
+                        id="groupName"
+                        placeholder="ej. Founders FinTech México"
+                        value={groupForm.name}
+                        onChange={(e) => setGroupForm({...groupForm, name: e.target.value})}
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="groupDescription">Descripción *</Label>
+                      <Textarea
+                        id="groupDescription"
+                        placeholder="Describe el propósito y objetivos del grupo..."
+                        value={groupForm.description}
+                        onChange={(e) => setGroupForm({...groupForm, description: e.target.value})}
+                        rows={3}
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="groupCategory">Categoría</Label>
+                      <Select
+                        value={groupForm.category}
+                        onValueChange={(value) => setGroupForm({...groupForm, category: value})}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecciona una categoría" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {categories.map((category) => (
+                            <SelectItem key={category} value={category}>
+                              {category}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="groupTags">Tags (separados por comas)</Label>
+                      <Input
+                        id="groupTags"
+                        placeholder="ej. FinTech, Startup, Funding"
+                        value={groupForm.tags}
+                        onChange={(e) => setGroupForm({...groupForm, tags: e.target.value})}
+                      />
+                    </div>
+
+                    <div className="flex items-center space-x-2">
+                      <input
+                        type="checkbox"
+                        id="isPrivate"
+                        checked={groupForm.isPrivate}
+                        onChange={(e) => setGroupForm({...groupForm, isPrivate: e.target.checked})}
+                        className="rounded border-gray-300"
+                      />
+                      <Label htmlFor="isPrivate" className="text-sm flex items-center">
+                        <Lock className="h-4 w-4 mr-1" />
+                        Grupo Privado (solo por invitación)
+                      </Label>
+                    </div>
+
+                    <div className="flex items-center justify-between pt-4 border-t">
+                      <Button 
+                        variant="outline" 
+                        onClick={() => setShowCreateGroup(false)}
+                      >
+                        Cancelar
+                      </Button>
+                      <Button 
+                        onClick={createGroup}
+                        disabled={!groupForm.name.trim() || !groupForm.description.trim()}
+                      >
+                        <Users className="h-4 w-4 mr-2" />
+                        Crear Grupo
+                      </Button>
+                    </div>
+                  </div>
+                </DialogContent>
+              </Dialog>
+
+              <Badge variant="secondary">
+                {conversations.reduce((acc, conv) => acc + conv.unread, 0) + 
+                 groupConversations.reduce((acc, conv) => acc + conv.unread, 0)} nuevos
+              </Badge>
+            </div>
           </div>
         </div>
       </div>
@@ -210,7 +463,7 @@ export default function MessagesPage() {
           {/* Conversations List */}
           <div className="lg:col-span-4 bg-white rounded-lg shadow-sm border h-full flex flex-col">
             {/* Search */}
-            <div className="p-4 border-b">
+            <div className="p-4 border-b space-y-3">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                 <input
@@ -221,6 +474,40 @@ export default function MessagesPage() {
                   className="w-full pl-10 pr-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
+              
+              {/* Filter Tabs */}
+              <div className="flex space-x-1 bg-gray-100 p-1 rounded-lg">
+                <button
+                  onClick={() => setViewMode('all')}
+                  className={`flex-1 py-2 px-3 text-sm font-medium rounded-md transition-colors ${
+                    viewMode === 'all' 
+                      ? 'bg-white text-blue-600 shadow-sm' 
+                      : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                >
+                  Todos ({conversations.length + groupConversations.length})
+                </button>
+                <button
+                  onClick={() => setViewMode('individual')}
+                  className={`flex-1 py-2 px-3 text-sm font-medium rounded-md transition-colors ${
+                    viewMode === 'individual' 
+                      ? 'bg-white text-blue-600 shadow-sm' 
+                      : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                >
+                  Individual ({conversations.length})
+                </button>
+                <button
+                  onClick={() => setViewMode('groups')}
+                  className={`flex-1 py-2 px-3 text-sm font-medium rounded-md transition-colors ${
+                    viewMode === 'groups' 
+                      ? 'bg-white text-blue-600 shadow-sm' 
+                      : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                >
+                  Grupos ({groupConversations.length})
+                </button>
+              </div>
             </div>
 
             {/* Conversations */}
@@ -229,18 +516,31 @@ export default function MessagesPage() {
                 <motion.div
                   key={conversation.id}
                   whileHover={{ backgroundColor: "#f9fafb" }}
-                  onClick={() => setActiveConversation(conversation.id)}
+                  onClick={() => selectConversation(conversation.id, conversation.type)}
                   className={`p-4 border-b cursor-pointer transition-colors ${
                     activeConversation === conversation.id ? "bg-blue-50 border-blue-200" : ""
                   }`}
                 >
                   <div className="flex items-start space-x-3">
                     <div className="relative">
-                      <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-semibold">
-                        {conversation.avatar}
+                      <div className={`w-12 h-12 rounded-full flex items-center justify-center text-white font-semibold ${
+                        conversation.type === 'group' 
+                          ? 'bg-gradient-to-br from-purple-500 to-pink-600' 
+                          : 'bg-gradient-to-br from-blue-500 to-purple-600'
+                      }`}>
+                        {conversation.type === 'group' ? (
+                          <Users className="h-6 w-6" />
+                        ) : (
+                          conversation.avatar
+                        )}
                       </div>
-                      {conversation.online && (
+                      {conversation.type === 'individual' && (conversation as any).online && (
                         <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 border-2 border-white rounded-full"></div>
+                      )}
+                      {conversation.type === 'group' && (conversation as any).isPrivate && (
+                        <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-gray-500 border-2 border-white rounded-full flex items-center justify-center">
+                          <Lock className="h-2 w-2 text-white" />
+                        </div>
                       )}
                     </div>
                     
@@ -250,14 +550,24 @@ export default function MessagesPage() {
                           <h3 className="font-semibold text-gray-900 truncate">
                             {conversation.name}
                           </h3>
-                          {conversation.isMatch && (
+                          {conversation.type === 'individual' && (conversation as any).isMatch && (
                             <Star className="h-4 w-4 text-yellow-500" />
+                          )}
+                          {conversation.type === 'group' && (
+                            <Badge variant="secondary" className="text-xs">
+                              {(conversation as any).memberCount}
+                            </Badge>
                           )}
                         </div>
                         <span className="text-xs text-gray-500">{conversation.timestamp}</span>
                       </div>
                       
-                      <p className="text-xs text-gray-600 mb-1">{conversation.company}</p>
+                      <p className="text-xs text-gray-600 mb-1">
+                        {conversation.type === 'individual' 
+                          ? (conversation as any).company 
+                          : `${(conversation as any).category} • ${(conversation as any).memberCount} miembros`
+                        }
+                      </p>
                       
                       <div className="flex items-center justify-between">
                         <p className="text-sm text-gray-700 truncate flex-1 mr-2">
@@ -284,27 +594,56 @@ export default function MessagesPage() {
                 <div className="p-4 border-b flex items-center justify-between">
                   <div className="flex items-center space-x-3">
                     <div className="relative">
-                      <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-semibold">
-                        {activeConv.avatar}
+                      <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-semibold ${
+                        activeConv.type === 'group' 
+                          ? 'bg-gradient-to-br from-purple-500 to-pink-600' 
+                          : 'bg-gradient-to-br from-blue-500 to-purple-600'
+                      }`}>
+                        {activeConv.type === 'group' ? (
+                          <Users className="h-5 w-5" />
+                        ) : (
+                          (activeConv as any).avatar
+                        )}
                       </div>
-                      {activeConv.online && (
+                      {activeConv.type === 'individual' && (activeConv as any).online && (
                         <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-green-500 border-2 border-white rounded-full"></div>
                       )}
                     </div>
                     <div>
-                      <h3 className="font-semibold text-gray-900">{activeConv.name}</h3>
-                      <p className="text-sm text-gray-600">{activeConv.company}</p>
-                      {activeConv.online && <p className="text-xs text-green-600">En línea</p>}
+                      <div className="flex items-center space-x-2">
+                        <h3 className="font-semibold text-gray-900">{activeConv.name}</h3>
+                        {activeConv.type === 'group' && (activeConv as any).isPrivate && (
+                          <Lock className="h-4 w-4 text-gray-500" />
+                        )}
+                      </div>
+                      <p className="text-sm text-gray-600">
+                        {activeConv.type === 'individual' 
+                          ? (activeConv as any).company 
+                          : `${(activeConv as any).memberCount} miembros • ${(activeConv as any).category}`
+                        }
+                      </p>
+                      {activeConv.type === 'individual' && (activeConv as any).online && (
+                        <p className="text-xs text-green-600">En línea</p>
+                      )}
                     </div>
                   </div>
                   
                   <div className="flex items-center space-x-2">
-                    <Button variant="ghost" size="sm">
-                      <Phone className="h-4 w-4" />
-                    </Button>
-                    <Button variant="ghost" size="sm">
-                      <Video className="h-4 w-4" />
-                    </Button>
+                    {activeConv.type === 'individual' && (
+                      <>
+                        <Button variant="ghost" size="sm">
+                          <Phone className="h-4 w-4" />
+                        </Button>
+                        <Button variant="ghost" size="sm">
+                          <Video className="h-4 w-4" />
+                        </Button>
+                      </>
+                    )}
+                    {activeConv.type === 'group' && (
+                      <Button variant="ghost" size="sm">
+                        <Users className="h-4 w-4" />
+                      </Button>
+                    )}
                     <Button variant="ghost" size="sm">
                       <MoreVertical className="h-4 w-4" />
                     </Button>
