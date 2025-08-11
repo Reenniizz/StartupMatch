@@ -126,9 +126,9 @@ export default function SettingsPage() {
   if (!user) return null;
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
       {/* Header */}
-      <div className="bg-white border-b">
+      <div className="bg-white border-b shadow-sm">
         <div className="max-w-6xl mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
@@ -173,7 +173,7 @@ export default function SettingsPage() {
       <div className="max-w-4xl mx-auto px-4 py-8">
         <div className="space-y-8">
           {/* Notifications Settings */}
-          <Card>
+          <Card className="shadow-sm hover:shadow-md transition-all duration-200 border-l-4 border-l-blue-500">
             <CardHeader>
               <CardTitle className="flex items-center">
                 <Bell className="h-5 w-5 mr-2 text-blue-600" />
@@ -228,7 +228,7 @@ export default function SettingsPage() {
           </Card>
 
           {/* Privacy Settings */}
-          <Card>
+          <Card className="shadow-sm hover:shadow-md transition-all duration-200 border-l-4 border-l-green-500">
             <CardHeader>
               <CardTitle className="flex items-center">
                 <Shield className="h-5 w-5 mr-2 text-green-600" />
@@ -288,7 +288,7 @@ export default function SettingsPage() {
           </Card>
 
           {/* Appearance Settings */}
-          <Card>
+          <Card className="shadow-sm hover:shadow-md transition-all duration-200 border-l-4 border-l-purple-500">
             <CardHeader>
               <CardTitle className="flex items-center">
                 {settings.darkMode ? (
@@ -347,7 +347,7 @@ export default function SettingsPage() {
           </Card>
 
           {/* Security Settings */}
-          <Card>
+          <Card className="shadow-sm hover:shadow-md transition-all duration-200 border-l-4 border-l-red-500">
             <CardHeader>
               <CardTitle className="flex items-center">
                 <Lock className="h-5 w-5 mr-2 text-red-600" />
@@ -395,7 +395,7 @@ export default function SettingsPage() {
           </Card>
 
           {/* Account Information */}
-          <Card>
+          <Card className="shadow-sm hover:shadow-md transition-all duration-200 border-l-4 border-l-indigo-500">
             <CardHeader>
               <CardTitle className="flex items-center">
                 <User className="h-5 w-5 mr-2 text-blue-600" />

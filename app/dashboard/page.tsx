@@ -266,200 +266,391 @@ export default function DashboardPage() {
 
         {/* Main Content */}
         <main className="flex-1 p-6">
-          {/* Stats Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
-            <Card className={`transition-colors duration-300 ${
-              isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
-            }`}>
-              <CardHeader className="pb-2">
-                <CardTitle className={`text-sm font-medium transition-colors duration-300 ${
-                  isDarkMode ? 'text-gray-400' : 'text-gray-600'
-                }`}>Total Projects</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className={`text-2xl font-bold transition-colors duration-300 ${
-                  isDarkMode ? 'text-white' : 'text-gray-900'
-                }`}>24</div>
-                <p className="text-xs text-green-600 mt-1">+2 this week</p>
-              </CardContent>
-            </Card>
-            
-            <Card className={`transition-colors duration-300 ${
-              isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
-            }`}>
-              <CardHeader className="pb-2">
-                <CardTitle className={`text-sm font-medium transition-colors duration-300 ${
-                  isDarkMode ? 'text-gray-400' : 'text-gray-600'
-                }`}>Active Matches</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className={`text-2xl font-bold transition-colors duration-300 ${
-                  isDarkMode ? 'text-white' : 'text-gray-900'
-                }`}>12</div>
-                <p className="text-xs text-blue-600 mt-1">+5 new matches</p>
-              </CardContent>
-            </Card>
-            
-            <Card className={`transition-colors duration-300 ${
-              isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
-            }`}>
-              <CardHeader className="pb-2">
-                <CardTitle className={`text-sm font-medium transition-colors duration-300 ${
-                  isDarkMode ? 'text-gray-400' : 'text-gray-600'
-                }`}>Messages</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className={`text-2xl font-bold transition-colors duration-300 ${
-                  isDarkMode ? 'text-white' : 'text-gray-900'
-                }`}>8</div>
-                <p className="text-xs text-orange-600 mt-1">3 unread</p>
-              </CardContent>
-            </Card>
+          {/* Stats Cards - Modern Design */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            {/* Total Connections */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.1 }}
+            >
+              <Card className={`relative overflow-hidden transition-all duration-300 hover:scale-105 ${
+                isDarkMode ? 'bg-gradient-to-r from-blue-900 to-blue-800 border-blue-700' : 'bg-gradient-to-r from-blue-600 to-blue-500 border-blue-400'
+              }`}>
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-blue-100 text-sm font-medium mb-1">
+                        Conexiones Activas
+                      </p>
+                      <p className="text-white text-3xl font-bold">142</p>
+                      <p className="text-blue-200 text-xs mt-2 flex items-center">
+                        ⬆️ +23 esta semana
+                      </p>
+                    </div>
+                    <div className="p-3 bg-white/10 rounded-full">
+                      <Handshake className="h-8 w-8 text-white" />
+                    </div>
+                  </div>
+                  <div className="absolute -right-4 -bottom-4 opacity-10">
+                    <Handshake className="h-20 w-20 text-white" />
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
 
-            <Card className={`transition-colors duration-300 ${
-              isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
-            }`}>
-              <CardHeader className="pb-2">
-                <CardTitle className={`text-sm font-medium transition-colors duration-300 ${
-                  isDarkMode ? 'text-gray-400' : 'text-gray-600'
-                }`}>Success Rate</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className={`text-2xl font-bold transition-colors duration-300 ${
-                  isDarkMode ? 'text-white' : 'text-gray-900'
-                }`}>67%</div>
-                <p className="text-xs text-green-600 mt-1">+12% from last month</p>
-              </CardContent>
-            </Card>
+            {/* Active Matches */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2 }}
+            >
+              <Card className={`relative overflow-hidden transition-all duration-300 hover:scale-105 ${
+                isDarkMode ? 'bg-gradient-to-r from-purple-900 to-purple-800 border-purple-700' : 'bg-gradient-to-r from-purple-600 to-purple-500 border-purple-400'
+              }`}>
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-purple-100 text-sm font-medium mb-1">
+                        Matches Perfectos
+                      </p>
+                      <p className="text-white text-3xl font-bold">24</p>
+                      <p className="text-purple-200 text-xs mt-2 flex items-center">
+                        🎯 +7 nuevos hoy
+                      </p>
+                    </div>
+                    <div className="p-3 bg-white/10 rounded-full">
+                      <Heart className="h-8 w-8 text-white" />
+                    </div>
+                  </div>
+                  <div className="absolute -right-4 -bottom-4 opacity-10">
+                    <Heart className="h-20 w-20 text-white" />
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+
+            {/* Messages */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.3 }}
+            >
+              <Card className={`relative overflow-hidden transition-all duration-300 hover:scale-105 ${
+                isDarkMode ? 'bg-gradient-to-r from-green-900 to-green-800 border-green-700' : 'bg-gradient-to-r from-green-600 to-green-500 border-green-400'
+              }`}>
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-green-100 text-sm font-medium mb-1">
+                        Conversaciones
+                      </p>
+                      <p className="text-white text-3xl font-bold">18</p>
+                      <p className="text-green-200 text-xs mt-2 flex items-center">
+                        💬 5 sin leer
+                      </p>
+                    </div>
+                    <div className="p-3 bg-white/10 rounded-full">
+                      <MessageSquare className="h-8 w-8 text-white" />
+                    </div>
+                  </div>
+                  <div className="absolute -right-4 -bottom-4 opacity-10">
+                    <MessageSquare className="h-20 w-20 text-white" />
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+
+            {/* Success Rate */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.4 }}
+            >
+              <Card className={`relative overflow-hidden transition-all duration-300 hover:scale-105 ${
+                isDarkMode ? 'bg-gradient-to-r from-orange-900 to-orange-800 border-orange-700' : 'bg-gradient-to-r from-orange-600 to-orange-500 border-orange-400'
+              }`}>
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-orange-100 text-sm font-medium mb-1">
+                        Tasa de Éxito
+                      </p>
+                      <p className="text-white text-3xl font-bold">89%</p>
+                      <p className="text-orange-200 text-xs mt-2 flex items-center">
+                        📈 +12% vs mes anterior
+                      </p>
+                    </div>
+                    <div className="p-3 bg-white/10 rounded-full">
+                      <BarChart3 className="h-8 w-8 text-white" />
+                    </div>
+                  </div>
+                  <div className="absolute -right-4 -bottom-4 opacity-10">
+                    <BarChart3 className="h-20 w-20 text-white" />
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
           </div>
 
-          {/* Welcome Section */}
-          <Card className={`mb-6 transition-colors duration-300 ${
-            isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
-          }`}>
-            <CardHeader>
-              <CardTitle className={`text-xl transition-colors duration-300 ${
-                isDarkMode ? 'text-white' : 'text-gray-900'
-              }`}>
-                ¡Bienvenido{' '}
-                {user?.user_metadata?.username 
-                  ? `@${user.user_metadata.username}`
-                  : user?.user_metadata?.firstName
-                  || 'Usuario'
-                }! 🚀
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <p className={`transition-colors duration-300 ${
-                  isDarkMode ? 'text-gray-300' : 'text-gray-600'
+          {/* Quick Actions */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.5 }}
+            className="mb-8"
+          >
+            <Card className={`transition-colors duration-300 ${
+              isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
+            }`}>
+              <CardHeader>
+                <CardTitle className={`flex items-center transition-colors duration-300 ${
+                  isDarkMode ? 'text-white' : 'text-gray-900'
                 }`}>
-                  Esta es tu nueva dashboard con sidebar completamente funcional. 
-                  Aquí tienes acceso rápido a todas las funcionalidades de StartupMatch.
-                </p>
-                
-                <div className="flex flex-wrap gap-2">
-                  <Badge variant="secondary">Dashboard Funcional</Badge>
-                  <Badge variant="secondary">Sidebar Colapsable</Badge>
-                  <Badge variant="secondary">Navegación Completa</Badge>
-                  <Badge variant="secondary">Notificaciones</Badge>
-                  <Badge variant="secondary">Tema Oscuro ✨</Badge>
-                </div>
+                  <Rocket className="mr-2 h-5 w-5" />
+                  Acciones Rápidas
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <Link href="/matches">
+                    <div className={`p-4 rounded-lg border-2 border-dashed transition-all duration-300 hover:border-solid hover:scale-105 cursor-pointer ${
+                      isDarkMode ? 'border-gray-600 hover:border-purple-500 hover:bg-purple-900/20' : 'border-gray-300 hover:border-purple-500 hover:bg-purple-50'
+                    }`}>
+                      <Heart className="h-8 w-8 text-purple-500 mb-2" />
+                      <h3 className={`font-semibold mb-1 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                        Explorar Matches
+                      </h3>
+                      <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                        Encuentra personas compatibles con tus objetivos
+                      </p>
+                    </div>
+                  </Link>
 
-                <div className="flex gap-4 pt-4">
                   <Link href="/projects">
-                    <Button>
-                      <Rocket className="mr-2 h-4 w-4" />
-                      Crear Proyecto
-                    </Button>
+                    <div className={`p-4 rounded-lg border-2 border-dashed transition-all duration-300 hover:border-solid hover:scale-105 cursor-pointer ${
+                      isDarkMode ? 'border-gray-600 hover:border-blue-500 hover:bg-blue-900/20' : 'border-gray-300 hover:border-blue-500 hover:bg-blue-50'
+                    }`}>
+                      <Rocket className="h-8 w-8 text-blue-500 mb-2" />
+                      <h3 className={`font-semibold mb-1 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                        Crear Proyecto
+                      </h3>
+                      <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                        Comparte tu idea y encuentra co-fundadores
+                      </p>
+                    </div>
                   </Link>
-                  <Link href="/explore">
-                    <Button variant="outline">
-                      <Search className="mr-2 h-4 w-4" />
-                      Buscar Matches
-                    </Button>
-                  </Link>
+
                   <Link href="/profile">
-                    <Button variant="outline">
-                      <User className="mr-2 h-4 w-4" />
-                      Ver Perfil
-                    </Button>
+                    <div className={`p-4 rounded-lg border-2 border-dashed transition-all duration-300 hover:border-solid hover:scale-105 cursor-pointer ${
+                      isDarkMode ? 'border-gray-600 hover:border-green-500 hover:bg-green-900/20' : 'border-gray-300 hover:border-green-500 hover:bg-green-50'
+                    }`}>
+                      <User className="h-8 w-8 text-green-500 mb-2" />
+                      <h3 className={`font-semibold mb-1 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                        Completar Perfil
+                      </h3>
+                      <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                        Optimiza tu perfil para mejores matches
+                      </p>
+                    </div>
                   </Link>
                 </div>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          </motion.div>
 
-          {/* Recent Activity */}
-          <Card className={`transition-colors duration-300 ${
-            isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
-          }`}>
-            <CardHeader>
-              <CardTitle className={`transition-colors duration-300 ${
-                isDarkMode ? 'text-white' : 'text-gray-900'
-              }`}>Actividad Reciente</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <div className={`flex items-center space-x-4 p-3 rounded-lg transition-colors duration-300 ${
-                  isDarkMode ? 'bg-blue-900/20' : 'bg-blue-50'
-                }`}>
-                  <div className={`p-2 rounded-full transition-colors duration-300 ${
-                    isDarkMode ? 'bg-blue-800' : 'bg-blue-100'
+          {/* Welcome Section & Recent Activity Grid */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            {/* Welcome Section */}
+            <motion.div
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.6 }}
+              className="lg:col-span-2"
+            >
+              <Card className={`transition-colors duration-300 ${
+                isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
+              }`}>
+                <CardHeader>
+                  <CardTitle className={`text-xl flex items-center transition-colors duration-300 ${
+                    isDarkMode ? 'text-white' : 'text-gray-900'
                   }`}>
-                    <Heart className="h-4 w-4 text-blue-600" />
-                  </div>
-                  <div className="flex-1">
-                    <p className={`text-sm font-medium transition-colors duration-300 ${
-                      isDarkMode ? 'text-white' : 'text-gray-900'
-                    }`}>Nuevo match encontrado</p>
-                    <p className={`text-xs transition-colors duration-300 ${
-                      isDarkMode ? 'text-gray-400' : 'text-gray-600'
-                    }`}>TechStartup busca co-founder</p>
-                  </div>
-                  <Badge variant="outline">Nuevo</Badge>
-                </div>
+                    <Star className="mr-2 h-6 w-6 text-yellow-500" />
+                    ¡Hola{' '}
+                    {user?.user_metadata?.firstName || user?.user_metadata?.username || 'Emprendedor'}! 🚀
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    <p className={`transition-colors duration-300 ${
+                      isDarkMode ? 'text-gray-300' : 'text-gray-600'
+                    }`}>
+                      Bienvenido a tu dashboard de StartupMatch. Aquí puedes gestionar tus conexiones, 
+                      explorar nuevas oportunidades y hacer crecer tu red de contactos empresariales.
+                    </p>
+                    
+                    <div className="flex flex-wrap gap-2">
+                      <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+                        🎯 Dashboard Moderno
+                      </Badge>
+                      <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200">
+                        ⚡ Super Rápido
+                      </Badge>
+                      <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                        🌙 Tema Oscuro
+                      </Badge>
+                      <Badge variant="outline" className="bg-orange-50 text-orange-700 border-orange-200">
+                        📱 Responsive
+                      </Badge>
+                    </div>
 
-                <div className={`flex items-center space-x-4 p-3 rounded-lg transition-colors duration-300 ${
-                  isDarkMode ? 'bg-green-900/20' : 'bg-green-50'
-                }`}>
-                  <div className={`p-2 rounded-full transition-colors duration-300 ${
-                    isDarkMode ? 'bg-green-800' : 'bg-green-100'
-                  }`}>
-                    <MessageSquare className="h-4 w-4 text-green-600" />
+                    {/* Progress Bar */}
+                    <div className="pt-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className={`text-sm font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                          Completitud del perfil
+                        </span>
+                        <span className="text-sm text-blue-600 font-semibold">75%</span>
+                      </div>
+                      <div className={`w-full bg-gray-200 rounded-full h-2.5 ${isDarkMode ? 'bg-gray-700' : 'bg-gray-200'}`}>
+                        <motion.div 
+                          className="bg-gradient-to-r from-blue-500 to-purple-500 h-2.5 rounded-full"
+                          initial={{ width: 0 }}
+                          animate={{ width: "75%" }}
+                          transition={{ duration: 1, delay: 0.8 }}
+                        />
+                      </div>
+                      <p className={`text-xs mt-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                        Completa tu perfil para mejores matches
+                      </p>
+                    </div>
                   </div>
-                  <div className="flex-1">
-                    <p className={`text-sm font-medium transition-colors duration-300 ${
-                      isDarkMode ? 'text-white' : 'text-gray-900'
-                    }`}>Mensaje recibido</p>
-                    <p className={`text-xs transition-colors duration-300 ${
-                      isDarkMode ? 'text-gray-400' : 'text-gray-600'
-                    }`}>De: María González</p>
-                  </div>
-                  <Badge variant="outline">2 min</Badge>
-                </div>
+                </CardContent>
+              </Card>
+            </motion.div>
 
-                <div className={`flex items-center space-x-4 p-3 rounded-lg transition-colors duration-300 ${
-                  isDarkMode ? 'bg-yellow-900/20' : 'bg-yellow-50'
-                }`}>
-                  <div className={`p-2 rounded-full transition-colors duration-300 ${
-                    isDarkMode ? 'bg-yellow-800' : 'bg-yellow-100'
+            {/* Recent Activity */}
+            <motion.div
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.7 }}
+            >
+              <Card className={`transition-colors duration-300 ${
+                isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
+              }`}>
+                <CardHeader>
+                  <CardTitle className={`flex items-center transition-colors duration-300 ${
+                    isDarkMode ? 'text-white' : 'text-gray-900'
                   }`}>
-                    <Calendar className="h-4 w-4 text-yellow-600" />
+                    <Bell className="mr-2 h-5 w-5" />
+                    Actividad Reciente
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    {/* Activity Item 1 */}
+                    <motion.div 
+                      className={`flex items-start space-x-3 p-3 rounded-lg transition-all duration-300 hover:scale-105 ${
+                        isDarkMode ? 'bg-blue-900/20 hover:bg-blue-900/30' : 'bg-blue-50 hover:bg-blue-100'
+                      }`}
+                      whileHover={{ scale: 1.02 }}
+                    >
+                      <div className={`p-2 rounded-full flex-shrink-0 ${
+                        isDarkMode ? 'bg-blue-800' : 'bg-blue-100'
+                      }`}>
+                        <Heart className="h-4 w-4 text-blue-600" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className={`text-sm font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                          Nuevo match perfecto
+                        </p>
+                        <p className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-600'} truncate`}>
+                          María G. busca co-founder técnico
+                        </p>
+                        <p className="text-xs text-blue-600 mt-1">hace 2 min</p>
+                      </div>
+                    </motion.div>
+
+                    {/* Activity Item 2 */}
+                    <motion.div 
+                      className={`flex items-start space-x-3 p-3 rounded-lg transition-all duration-300 hover:scale-105 ${
+                        isDarkMode ? 'bg-green-900/20 hover:bg-green-900/30' : 'bg-green-50 hover:bg-green-100'
+                      }`}
+                      whileHover={{ scale: 1.02 }}
+                    >
+                      <div className={`p-2 rounded-full flex-shrink-0 ${
+                        isDarkMode ? 'bg-green-800' : 'bg-green-100'
+                      }`}>
+                        <MessageSquare className="h-4 w-4 text-green-600" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className={`text-sm font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                          Mensaje recibido
+                        </p>
+                        <p className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-600'} truncate`}>
+                          "¡Hola! Me interesa tu proyecto..."
+                        </p>
+                        <p className="text-xs text-green-600 mt-1">hace 15 min</p>
+                      </div>
+                    </motion.div>
+
+                    {/* Activity Item 3 */}
+                    <motion.div 
+                      className={`flex items-start space-x-3 p-3 rounded-lg transition-all duration-300 hover:scale-105 ${
+                        isDarkMode ? 'bg-purple-900/20 hover:bg-purple-900/30' : 'bg-purple-50 hover:bg-purple-100'
+                      }`}
+                      whileHover={{ scale: 1.02 }}
+                    >
+                      <div className={`p-2 rounded-full flex-shrink-0 ${
+                        isDarkMode ? 'bg-purple-800' : 'bg-purple-100'
+                      }`}>
+                        <Star className="h-4 w-4 text-purple-600" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className={`text-sm font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                          Perfil destacado
+                        </p>
+                        <p className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-600'} truncate`}>
+                          Tu perfil fue visto 24 veces hoy
+                        </p>
+                        <p className="text-xs text-purple-600 mt-1">hace 1 hora</p>
+                      </div>
+                    </motion.div>
+
+                    {/* Activity Item 4 */}
+                    <motion.div 
+                      className={`flex items-start space-x-3 p-3 rounded-lg transition-all duration-300 hover:scale-105 ${
+                        isDarkMode ? 'bg-orange-900/20 hover:bg-orange-900/30' : 'bg-orange-50 hover:bg-orange-100'
+                      }`}
+                      whileHover={{ scale: 1.02 }}
+                    >
+                      <div className={`p-2 rounded-full flex-shrink-0 ${
+                        isDarkMode ? 'bg-orange-800' : 'bg-orange-100'
+                      }`}>
+                        <Calendar className="h-4 w-4 text-orange-600" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className={`text-sm font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                          Evento próximo
+                        </p>
+                        <p className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-600'} truncate`}>
+                          Startup Networking Madrid
+                        </p>
+                        <p className="text-xs text-orange-600 mt-1">mañana 19:00</p>
+                      </div>
+                    </motion.div>
+
+                    {/* View All Button */}
+                    <div className="pt-2">
+                      <Button variant="outline" size="sm" className="w-full">
+                        Ver todas las actividades
+                      </Button>
+                    </div>
                   </div>
-                  <div className="flex-1">
-                    <p className={`text-sm font-medium transition-colors duration-300 ${
-                      isDarkMode ? 'text-white' : 'text-gray-900'
-                    }`}>Evento próximo</p>
-                    <p className={`text-xs transition-colors duration-300 ${
-                      isDarkMode ? 'text-gray-400' : 'text-gray-600'
-                    }`}>Startup Networking - Mañana</p>
-                  </div>
-                  <Badge variant="outline">Mañana</Badge>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+                </CardContent>
+              </Card>
+            </motion.div>
+          </div>
         </main>
       </div>
     </div>

@@ -103,21 +103,27 @@ export default function ProfilePage() {
   if (!user) return null;
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-purple-50">
       {/* Header */}
-      <div className="bg-white border-b">
+      <motion.div 
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="bg-white/80 backdrop-blur-sm border-b border-white/20 shadow-sm"
+      >
         <div className="max-w-6xl mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
               <Link 
                 href="/dashboard"
-                className="flex items-center space-x-2 text-gray-600 hover:text-gray-900"
+                className="flex items-center space-x-2 text-gray-600 hover:text-gray-900 transition-colors"
               >
                 <ArrowLeft className="h-5 w-5" />
                 <span>Dashboard</span>
               </Link>
               <div className="text-gray-300">|</div>
-              <h1 className="text-2xl font-bold text-gray-900">Mi Perfil</h1>
+              <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                Mi Perfil
+              </h1>
             </div>
 
             <div className="flex items-center space-x-2">
@@ -127,6 +133,7 @@ export default function ProfilePage() {
                     onClick={() => setIsEditing(false)}
                     variant="outline"
                     size="sm"
+                    className="hover:bg-red-50 hover:border-red-200"
                   >
                     <X className="h-4 w-4 mr-2" />
                     Cancelar
@@ -134,6 +141,7 @@ export default function ProfilePage() {
                   <Button 
                     onClick={handleSave}
                     size="sm"
+                    className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
                   >
                     <Save className="h-4 w-4 mr-2" />
                     Guardar
@@ -143,6 +151,7 @@ export default function ProfilePage() {
                 <Button 
                   onClick={() => setIsEditing(true)}
                   size="sm"
+                  className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
                 >
                   <Edit3 className="h-4 w-4 mr-2" />
                   Editar Perfil
@@ -151,25 +160,40 @@ export default function ProfilePage() {
             </div>
           </div>
         </div>
-      </div>
+      </motion.div>
 
       <div className="max-w-6xl mx-auto px-4 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Left Column - Profile Card */}
-          <div className="lg:col-span-1">
-            <Card>
+          <motion.div 
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.1 }}
+            className="lg:col-span-1"
+          >
+            <Card className="bg-white/70 backdrop-blur-sm border-white/40 shadow-xl">
               <CardContent className="p-6">
                 {/* Profile Picture */}
                 <div className="text-center mb-6">
                   <div className="relative inline-block">
-                    <div className="w-32 h-32 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white text-4xl font-bold">
+                    <motion.div 
+                      whileHover={{ scale: 1.05 }}
+                      className="w-32 h-32 bg-gradient-to-br from-blue-500 via-purple-600 to-pink-500 rounded-full flex items-center justify-center text-white text-4xl font-bold shadow-lg"
+                    >
                       {profileData.displayName.charAt(0).toUpperCase() || 'U'}
-                    </div>
+                    </motion.div>
                     {isEditing && (
-                      <button className="absolute bottom-2 right-2 bg-white rounded-full p-2 shadow-lg border">
-                        <Camera className="h-4 w-4 text-gray-600" />
-                      </button>
+                      <motion.button 
+                        whileHover={{ scale: 1.1 }}
+                        whileTap={{ scale: 0.95 }}
+                        className="absolute bottom-2 right-2 bg-white rounded-full p-2 shadow-lg border hover:bg-blue-50"
+                      >
+                        <Camera className="h-4 w-4 text-blue-600" />
+                      </motion.button>
                     )}
+                    
+                    {/* Online Status Indicator */}
+                    <div className="absolute bottom-4 left-24 w-4 h-4 bg-green-500 border-2 border-white rounded-full"></div>
                   </div>
 
                   {isEditing ? (
@@ -179,14 +203,14 @@ export default function ProfilePage() {
                         placeholder="Nombre completo"
                         value={profileData.displayName}
                         onChange={(e) => setProfileData({...profileData, displayName: e.target.value})}
-                        className="w-full px-3 py-2 border rounded-lg text-center font-medium"
+                        className="w-full px-3 py-2 border-2 border-blue-200 rounded-lg text-center font-medium focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
                       />
                       <input
                         type="text"
                         placeholder="@username"
                         value={profileData.username}
                         onChange={(e) => setProfileData({...profileData, username: e.target.value})}
-                        className="w-full px-3 py-2 border rounded-lg text-center text-gray-600"
+                        className="w-full px-3 py-2 border-2 border-purple-200 rounded-lg text-center text-gray-600 focus:border-purple-500 focus:ring-2 focus:ring-purple-200"
                       />
                     </div>
                   ) : (
@@ -194,7 +218,13 @@ export default function ProfilePage() {
                       <h2 className="text-2xl font-bold text-gray-900 mt-4">
                         {profileData.displayName}
                       </h2>
-                      <p className="text-gray-600">@{profileData.username}</p>
+                      <p className="text-blue-600 font-medium">@{profileData.username}</p>
+                      <div className="flex items-center justify-center mt-2">
+                        <span className="inline-flex items-center px-2 py-1 bg-green-100 text-green-800 text-xs font-medium rounded-full">
+                          <div className="w-2 h-2 bg-green-500 rounded-full mr-1 animate-pulse"></div>
+                          En línea
+                        </span>
+                      </div>
                     </>
                   )}
                 </div>
@@ -207,104 +237,114 @@ export default function ProfilePage() {
                       value={profileData.bio}
                       onChange={(e) => setProfileData({...profileData, bio: e.target.value})}
                       rows={4}
-                      className="w-full px-3 py-2 border rounded-lg resize-none"
+                      className="w-full px-3 py-2 border-2 border-gray-200 rounded-lg resize-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
                     />
                   ) : (
-                    <p className="text-gray-700 text-center leading-relaxed">
-                      {profileData.bio || 'No hay biografía disponible.'}
+                    <p className="text-gray-700 text-center leading-relaxed bg-gray-50 p-4 rounded-lg">
+                      {profileData.bio || 'No hay biografía disponible. ¡Agrega algo sobre ti!'}
                     </p>
                   )}
                 </div>
 
                 {/* Location & Links */}
-                <div className="space-y-3">
+                <div className="space-y-4">
                   {/* Location */}
-                  <div className="flex items-center space-x-2">
-                    <MapPin className="h-4 w-4 text-gray-400" />
+                  <div className="flex items-center space-x-3 p-2 bg-blue-50 rounded-lg">
+                    <MapPin className="h-5 w-5 text-blue-600" />
                     {isEditing ? (
                       <input
                         type="text"
                         placeholder="Ubicación"
                         value={profileData.location}
                         onChange={(e) => setProfileData({...profileData, location: e.target.value})}
-                        className="flex-1 px-2 py-1 border rounded text-sm"
+                        className="flex-1 px-2 py-1 border-2 border-blue-200 rounded focus:border-blue-500"
                       />
                     ) : (
-                      <span className="text-gray-600 text-sm">
+                      <span className="text-gray-700 font-medium">
                         {profileData.location || 'Ubicación no especificada'}
                       </span>
                     )}
                   </div>
 
                   {/* Website */}
-                  <div className="flex items-center space-x-2">
-                    <Globe className="h-4 w-4 text-gray-400" />
+                  <div className="flex items-center space-x-3 p-2 bg-purple-50 rounded-lg">
+                    <Globe className="h-5 w-5 text-purple-600" />
                     {isEditing ? (
                       <input
                         type="url"
                         placeholder="Website"
                         value={profileData.website}
                         onChange={(e) => setProfileData({...profileData, website: e.target.value})}
-                        className="flex-1 px-2 py-1 border rounded text-sm"
+                        className="flex-1 px-2 py-1 border-2 border-purple-200 rounded focus:border-purple-500"
                       />
                     ) : (
                       profileData.website ? (
-                        <a href={profileData.website} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline text-sm">
+                        <a href={profileData.website} target="_blank" rel="noopener noreferrer" className="text-purple-600 hover:text-purple-800 font-medium hover:underline">
                           {profileData.website}
                         </a>
                       ) : (
-                        <span className="text-gray-400 text-sm">No website</span>
+                        <span className="text-gray-500">No website</span>
                       )
                     )}
                   </div>
 
                   {/* Social Links */}
-                  <div className="pt-4 border-t">
-                    <div className="flex justify-center space-x-4">
-                      <div className="text-center">
-                        <Linkedin className="h-5 w-5 text-blue-600 mx-auto mb-1" />
+                  <div className="pt-4 border-t border-gray-200">
+                    <p className="text-center text-gray-600 text-sm mb-3">Redes Sociales</p>
+                    <div className="grid grid-cols-3 gap-2">
+                      <motion.div 
+                        whileHover={{ scale: 1.05 }}
+                        className="text-center p-2 bg-blue-50 rounded-lg"
+                      >
+                        <Linkedin className="h-6 w-6 text-blue-600 mx-auto mb-1" />
                         {isEditing ? (
                           <input
                             type="text"
                             placeholder="LinkedIn"
                             value={profileData.linkedin}
                             onChange={(e) => setProfileData({...profileData, linkedin: e.target.value})}
-                            className="w-20 px-1 py-1 border rounded text-xs text-center"
+                            className="w-full px-1 py-1 border rounded text-xs text-center"
                           />
                         ) : (
-                          <p className="text-xs text-gray-600">LinkedIn</p>
+                          <p className="text-xs text-blue-600 font-medium">LinkedIn</p>
                         )}
-                      </div>
+                      </motion.div>
                       
-                      <div className="text-center">
-                        <Twitter className="h-5 w-5 text-blue-400 mx-auto mb-1" />
+                      <motion.div 
+                        whileHover={{ scale: 1.05 }}
+                        className="text-center p-2 bg-sky-50 rounded-lg"
+                      >
+                        <Twitter className="h-6 w-6 text-sky-500 mx-auto mb-1" />
                         {isEditing ? (
                           <input
                             type="text"
                             placeholder="Twitter"
                             value={profileData.twitter}
                             onChange={(e) => setProfileData({...profileData, twitter: e.target.value})}
-                            className="w-20 px-1 py-1 border rounded text-xs text-center"
+                            className="w-full px-1 py-1 border rounded text-xs text-center"
                           />
                         ) : (
-                          <p className="text-xs text-gray-600">Twitter</p>
+                          <p className="text-xs text-sky-600 font-medium">Twitter</p>
                         )}
-                      </div>
+                      </motion.div>
                       
-                      <div className="text-center">
-                        <Github className="h-5 w-5 text-gray-700 mx-auto mb-1" />
+                      <motion.div 
+                        whileHover={{ scale: 1.05 }}
+                        className="text-center p-2 bg-gray-50 rounded-lg"
+                      >
+                        <Github className="h-6 w-6 text-gray-700 mx-auto mb-1" />
                         {isEditing ? (
                           <input
                             type="text"
                             placeholder="GitHub"
                             value={profileData.github}
                             onChange={(e) => setProfileData({...profileData, github: e.target.value})}
-                            className="w-20 px-1 py-1 border rounded text-xs text-center"
+                            className="w-full px-1 py-1 border rounded text-xs text-center"
                           />
                         ) : (
-                          <p className="text-xs text-gray-600">GitHub</p>
+                          <p className="text-xs text-gray-700 font-medium">GitHub</p>
                         )}
-                      </div>
+                      </motion.div>
                     </div>
                   </div>
                 </div>
@@ -312,44 +352,68 @@ export default function ProfilePage() {
             </Card>
 
             {/* Stats Card */}
-            <Card className="mt-6">
-              <CardHeader>
-                <CardTitle className="text-lg">Estadísticas</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="text-center">
-                    <div className="flex items-center justify-center mb-1">
-                      <Star className="h-4 w-4 text-yellow-500 mr-1" />
-                      <span className="font-semibold">4.8</span>
-                    </div>
-                    <p className="text-xs text-gray-600">Rating</p>
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2 }}
+            >
+              <Card className="mt-6 bg-gradient-to-br from-blue-500 to-purple-600 text-white">
+                <CardHeader>
+                  <CardTitle className="text-white flex items-center">
+                    <Star className="mr-2 h-5 w-5 text-yellow-300" />
+                    Estadísticas
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-2 gap-4">
+                    <motion.div 
+                      whileHover={{ scale: 1.05 }}
+                      className="text-center p-3 bg-white/10 rounded-lg"
+                    >
+                      <div className="flex items-center justify-center mb-2">
+                        <Star className="h-5 w-5 text-yellow-300 mr-1" />
+                        <span className="font-bold text-xl">4.9</span>
+                      </div>
+                      <p className="text-sm text-blue-100">Rating</p>
+                    </motion.div>
+                    
+                    <motion.div 
+                      whileHover={{ scale: 1.05 }}
+                      className="text-center p-3 bg-white/10 rounded-lg"
+                    >
+                      <div className="flex items-center justify-center mb-2">
+                        <Users className="h-5 w-5 text-blue-300 mr-1" />
+                        <span className="font-bold text-xl">24</span>
+                      </div>
+                      <p className="text-sm text-blue-100">Conexiones</p>
+                    </motion.div>
+                    
+                    <motion.div 
+                      whileHover={{ scale: 1.05 }}
+                      className="text-center p-3 bg-white/10 rounded-lg"
+                    >
+                      <div className="flex items-center justify-center mb-2">
+                        <Briefcase className="h-5 w-5 text-green-300 mr-1" />
+                        <span className="font-bold text-xl">8</span>
+                      </div>
+                      <p className="text-sm text-blue-100">Proyectos</p>
+                    </motion.div>
+                    
+                    <motion.div 
+                      whileHover={{ scale: 1.05 }}
+                      className="text-center p-3 bg-white/10 rounded-lg"
+                    >
+                      <div className="flex items-center justify-center mb-2">
+                        <Calendar className="h-5 w-5 text-purple-300 mr-1" />
+                        <span className="font-bold text-xl">12</span>
+                      </div>
+                      <p className="text-sm text-blue-100">Meses activo</p>
+                    </motion.div>
                   </div>
-                  <div className="text-center">
-                    <div className="flex items-center justify-center mb-1">
-                      <Users className="h-4 w-4 text-blue-500 mr-1" />
-                      <span className="font-semibold">12</span>
-                    </div>
-                    <p className="text-xs text-gray-600">Colaboraciones</p>
-                  </div>
-                  <div className="text-center">
-                    <div className="flex items-center justify-center mb-1">
-                      <Briefcase className="h-4 w-4 text-green-500 mr-1" />
-                      <span className="font-semibold">3</span>
-                    </div>
-                    <p className="text-xs text-gray-600">Proyectos</p>
-                  </div>
-                  <div className="text-center">
-                    <div className="flex items-center justify-center mb-1">
-                      <Calendar className="h-4 w-4 text-purple-500 mr-1" />
-                      <span className="font-semibold">6</span>
-                    </div>
-                    <p className="text-xs text-gray-600">Meses</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+          </motion.div>
 
           {/* Right Column - Details */}
           <div className="lg:col-span-2 space-y-6">
