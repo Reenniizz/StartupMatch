@@ -1,24 +1,39 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Menu, X, Zap, User } from "lucide-react";
+import { Menu, X, Zap, User, ChevronDown, Settings, LogOut } from "lucide-react";
 import { useAppStore } from "@/store/appStore";
 import { useAuth } from "@/contexts/AuthProvider";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 const Header = () => {
   const [isScrolled, setIsScrolled] = useState(false);
+  const [showUserMenu, setShowUserMenu] = useState(false);
   const { isMenuOpen, setMenuOpen } = useAppStore();
   const { user, signOut } = useAuth();
+  const router = useRouter();
+  const userMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const handleScroll = () => {
       setIsScrolled(window.scrollY > 50);
     };
 
+    const handleClickOutside = (event: MouseEvent) => {
+      if (userMenuRef.current && !userMenuRef.current.contains(event.target as Node)) {
+        setShowUserMenu(false);
+      }
+    };
+
     window.addEventListener("scroll", handleScroll);
-    return () => window.removeEventListener("scroll", handleScroll);
+    document.addEventListener("mousedown", handleClickOutside);
+    
+    return () => {
+      window.removeEventListener("scroll", handleScroll);
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
   }, []);
 
   const menuItems = [
@@ -27,6 +42,16 @@ const Header = () => {
     { label: "Testimonios", href: "#testimonials" },
     { label: "Empieza hoy", href: "#get-started" },
   ];
+
+  const handleLogout = async () => {
+    try {
+      await signOut();
+      setShowUserMenu(false);
+      router.push('/');
+    } catch (error) {
+      console.error('Error al cerrar sesión:', error);
+    }
+  };
 
   return (
     <motion.header
@@ -77,17 +102,53 @@ const Header = () => {
           {/* Auth Buttons */}
           <div className="hidden md:flex items-center space-x-4">
             {user ? (
-              // Usuario autenticado - Solo mostrar botón de dashboard
-              <Link href="/dashboard">
+              // Usuario autenticado - Dropdown de usuario
+              <div className="relative" ref={userMenuRef}>
                 <motion.button
-                  className="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-green-500 text-white px-6 py-2 rounded-lg font-medium hover:shadow-lg transform transition-all duration-200"
+                  onClick={() => setShowUserMenu(!showUserMenu)}
+                  className="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-green-500 text-white px-4 py-2 rounded-lg font-medium hover:shadow-lg transform transition-all duration-200"
                   whileHover={{ scale: 1.05, y: -2 }}
                   whileTap={{ scale: 0.95 }}
                 >
                   <User className="w-4 h-4" />
-                  Go Dashboard
+                  <span>{user.user_metadata?.firstName || user.email?.split('@')[0] || 'Usuario'}</span>
+                  <ChevronDown className={`w-4 h-4 transition-transform ${showUserMenu ? 'rotate-180' : ''}`} />
                 </motion.button>
-              </Link>
+
+                {/* Dropdown Menu */}
+                <AnimatePresence>
+                  {showUserMenu && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                      transition={{ duration: 0.2 }}
+                      className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-50"
+                    >
+                      <Link href="/dashboard">
+                        <div className="flex items-center gap-2 px-4 py-2 text-gray-700 hover:bg-gray-50 cursor-pointer">
+                          <User className="w-4 h-4" />
+                          Dashboard
+                        </div>
+                      </Link>
+                      <Link href="/settings">
+                        <div className="flex items-center gap-2 px-4 py-2 text-gray-700 hover:bg-gray-50 cursor-pointer">
+                          <Settings className="w-4 h-4" />
+                          Configuración
+                        </div>
+                      </Link>
+                      <hr className="my-2" />
+                      <button
+                        onClick={handleLogout}
+                        className="flex items-center gap-2 px-4 py-2 text-red-600 hover:bg-red-50 cursor-pointer w-full text-left"
+                      >
+                        <LogOut className="w-4 h-4" />
+                        Cerrar Sesión
+                      </button>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
             ) : (
               // Usuario no autenticado - Mostrar botones de login y registro
               <>
@@ -146,13 +207,28 @@ const Header = () => {
               ))}
               <div className="flex flex-col space-y-2 pt-4 border-t border-gray-100">
                 {user ? (
-                  // Usuario autenticado - Solo mostrar botón de dashboard
-                  <Link href="/dashboard">
-                    <button className="flex items-center justify-center gap-2 bg-gradient-to-r from-blue-600 to-green-500 text-white px-6 py-3 rounded-lg font-medium w-full">
-                      <User className="w-4 h-4" />
-                      Go Dashboard
+                  // Usuario autenticado - Mostrar opciones del usuario
+                  <>
+                    <Link href="/dashboard">
+                      <button className="flex items-center justify-center gap-2 bg-gradient-to-r from-blue-600 to-green-500 text-white px-6 py-3 rounded-lg font-medium w-full mb-2">
+                        <User className="w-4 h-4" />
+                        Dashboard
+                      </button>
+                    </Link>
+                    <Link href="/settings">
+                      <button className="flex items-center gap-2 text-gray-700 hover:text-blue-600 font-medium py-2 text-left w-full">
+                        <Settings className="w-4 h-4" />
+                        Configuración
+                      </button>
+                    </Link>
+                    <button
+                      onClick={handleLogout}
+                      className="flex items-center gap-2 text-red-600 hover:text-red-700 font-medium py-2 text-left w-full"
+                    >
+                      <LogOut className="w-4 h-4" />
+                      Cerrar Sesión
                     </button>
-                  </Link>
+                  </>
                 ) : (
                   // Usuario no autenticado - Mostrar botones de login y registro
                   <>

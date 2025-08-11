@@ -129,8 +129,8 @@ const csp = [
 - [x] Configuración Next.js segura
 
 ### Por Implementar 🔴
-- [ ] Row Level Security en Supabase
-- [ ] Variables de entorno de producción
+- [x] Row Level Security en Supabase ✅ **COMPLETADO** - Ver DATABASE_SETUP.md
+- [x] Variables de entorno de producción ✅ **COMPLETADO**
 - [ ] Logging de seguridad
 - [ ] 2FA/MFA
 - [ ] Gestión de tokens JWT
@@ -138,7 +138,7 @@ const csp = [
 
 ### Mejoras Futuras 🟡
 - [ ] WAF (Web Application Firewall)
-- [ ] DDoS protection
+- [x] DDoS protection básico ✅ **IMPLEMENTADO** - Rate limiting en middleware
 - [ ] Penetration testing
 - [ ] Security audit externo
 - [ ] Monitoreo en tiempo real

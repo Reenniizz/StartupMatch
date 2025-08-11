@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useEffect, useState } from 'react';
 import { User, Session } from '@supabase/supabase-js';
-import { supabase } from '@/lib/supabase-client';
+import { supabase, handleSupabaseError } from '@/lib/supabase-client';
 
 interface AuthContextType {
   user: User | null;
@@ -30,9 +30,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setIsClient(true);
     
     // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(({ data: { session }, error }) => {
+      if (error) {
+        console.warn('Error al obtener sesión inicial:', error);
+      }
       setSession(session);
       setUser(session?.user ?? null);
+      setLoading(false);
+    }).catch((error) => {
+      console.error('Error de red al obtener sesión:', error);
+      setSession(null);
+      setUser(null);
       setLoading(false);
     });
 
@@ -40,6 +48,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log('Auth state change:', event, session?.user?.email);
       setSession(session);
       setUser(session?.user ?? null);
       setLoading(false);
@@ -49,19 +58,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-    return { error };
+    try {
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+      return { error };
+    } catch (error) {
+      console.error('Network error during sign in:', error);
+      const processedError = handleSupabaseError(error);
+      return { error: { message: processedError.message } };
+    }
   };
 
   const signUp = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-    });
-    return { error };
+    try {
+      const { error } = await supabase.auth.signUp({
+        email,
+        password,
+      });
+      return { error };
+    } catch (error) {
+      console.error('Network error during sign up:', error);
+      const processedError = handleSupabaseError(error);
+      return { error: { message: processedError.message } };
+    }
   };
 
   const signUpAndLogin = async (email: string, password: string, metadata?: {
@@ -102,7 +123,49 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const signOut = async () => {
-    await supabase.auth.signOut();
+    try {
+      // Intentar cerrar sesión en Supabase con timeout
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Timeout')), 3000)
+      );
+      
+      const signOutPromise = supabase.auth.signOut();
+      
+      await Promise.race([signOutPromise, timeoutPromise]);
+      
+      console.log('✅ Logout exitoso en Supabase');
+    } catch (error) {
+      console.warn('⚠️ Error al cerrar sesión en Supabase (procediendo con limpieza local):', error);
+    }
+    
+    // SIEMPRE limpiar estado local, independientemente del resultado
+    setUser(null);
+    setSession(null);
+    
+    // Limpiar todas las posibles ubicaciones de tokens
+    if (typeof window !== 'undefined') {
+      try {
+        // Limpiar localStorage de Supabase
+        const keys = Object.keys(localStorage);
+        keys.forEach(key => {
+          if (key.includes('supabase') || key.includes('sb-')) {
+            localStorage.removeItem(key);
+          }
+        });
+        
+        // Limpiar sessionStorage también
+        const sessionKeys = Object.keys(sessionStorage);
+        sessionKeys.forEach(key => {
+          if (key.includes('supabase') || key.includes('sb-')) {
+            sessionStorage.removeItem(key);
+          }
+        });
+        
+        console.log('🧹 Cache local limpiado');
+      } catch (storageError) {
+        console.warn('Error limpiando storage:', storageError);
+      }
+    }
   };
 
   const value = {

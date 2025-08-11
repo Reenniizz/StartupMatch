@@ -38,6 +38,11 @@ export default function LoginPage() {
     }
   }, [user, loading, router]);
 
+  // Scroll to top - MOVED HERE to maintain hook order
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, []);
+
   // Show loading screen while checking authentication
   if (loading) {
     return (
@@ -94,10 +99,6 @@ export default function LoginPage() {
       </div>
     );
   }
-
-  useEffect(() => {
-    window.scrollTo(0, 0);
-  }, []);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
