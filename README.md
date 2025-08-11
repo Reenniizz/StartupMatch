@@ -125,4 +125,4 @@ Este proyecto está bajo la Licencia MIT. Ver el archivo \`LICENSE\` para más d
 
 Tu Nombre - [@tu_twitter](https://twitter.com/tu_twitter) - tu@email.com
 
-Enlace del Proyecto: [https://github.com/TU_USUARIO/StartupMatch](https://github.com/TU_USUARIO/StartupMatch)
+Enlace del Proyecto: [https://github.com/Reenniizz/StartupMatch](https://github.com/Reenniizz/StartupMatch)

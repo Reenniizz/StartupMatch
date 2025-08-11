@@ -6,6 +6,7 @@ import { Eye, EyeOff, Mail, Lock, ArrowLeft, Zap } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthProvider";
+import { loginSchema, sanitizeInput } from "@/lib/security";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -100,10 +101,14 @@ export default function LoginPage() {
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
+    // Sanitize input to prevent XSS
+    const sanitizedValue = sanitizeInput(value);
+    
     setFormData(prev => ({
       ...prev,
-      [name]: value
+      [name]: sanitizedValue
     }));
+    
     // Clear error when user starts typing
     if (errors[name]) {
       setErrors(prev => ({
@@ -114,22 +119,24 @@ export default function LoginPage() {
   };
 
   const validateForm = () => {
-    const newErrors: { [key: string]: string } = {};
-    
-    if (!formData.email) {
-      newErrors.email = "El email es requerido";
-    } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
-      newErrors.email = "Email inválido";
+    try {
+      loginSchema.parse(formData);
+      setErrors({});
+      return true;
+    } catch (error: any) {
+      const newErrors: { [key: string]: string } = {};
+      
+      if (error.errors) {
+        error.errors.forEach((err: any) => {
+          if (err.path) {
+            newErrors[err.path[0]] = err.message;
+          }
+        });
+      }
+      
+      setErrors(newErrors);
+      return false;
     }
-    
-    if (!formData.password) {
-      newErrors.password = "La contraseña es requerida";
-    } else if (formData.password.length < 6) {
-      newErrors.password = "La contraseña debe tener al menos 6 caracteres";
-    }
-    
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
