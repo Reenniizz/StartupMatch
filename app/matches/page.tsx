@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useAuth } from "@/contexts/AuthProvider";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
+import { useMatches, useConnections, type MatchUser } from "@/hooks/useMatches";
 import { 
   ArrowLeft, 
   MessageCircle,
@@ -20,12 +21,28 @@ import {
   Eye,
   Trash2,
   Heart,
-  Users
+  Users,
+  Sparkles,
+  Target,
+  Mail,
+  Phone,
+  Star,
+  RefreshCw,
+  Settings,
+  TrendingUp
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
+import { Slider } from "@/components/ui/slider";
+import { Separator } from "@/components/ui/separator";
+import { toast } from "@/hooks/use-toast";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -33,49 +50,54 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-// Tipos para matches
-interface Match {
-  id: string;
-  userId: string;
-  name: string;
-  username: string;
-  avatar: string;
-  title: string;
-  company: string;
-  location: string;
-  status: 'pending' | 'accepted' | 'connected' | 'declined';
-  matchDate: string;
-  lastActivity: string;
-  mutualConnections: number;
-  skills: string[];
-  isOnline: boolean;
-  hasUnreadMessages?: boolean;
-  connectionStrength: number; // 1-100
-}
-
-// API para obtener matches reales del usuario
-async function fetchUserMatches(userId: string) {
-  try {
-    const response = await fetch(`/api/mutual-matches?userId=${userId}&status=active`);
-    if (!response.ok) {
-      throw new Error('Error fetching matches');
-    }
-    const data = await response.json();
-    return data.matches || [];
-  } catch (error) {
-    console.error('Error fetching user matches:', error);
-    return [];
-  }
-}
-
 export default function MatchesPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
-  const [matches, setMatches] = useState<Match[]>([]);
-  const [filteredMatches, setFilteredMatches] = useState<Match[]>([]);
-  const [activeFilter, setActiveFilter] = useState<'all' | 'connected' | 'pending' | 'accepted'>('all');
+  
+  // Hooks para matches y conexiones
+  const {
+    matches,
+    loading: matchesLoading,
+    error: matchesError,
+    hasMore,
+    totalFound,
+    totalPotential,
+    discoverMatches,
+    sendConnectionRequest,
+    calculateCompatibility,
+    refreshMatches
+  } = useMatches();
+
+  const {
+    connections,
+    connectionRequests,
+    loading: connectionsLoading,
+    stats: connectionStats,
+    fetchConnections,
+    fetchConnectionRequests,
+    respondToConnection,
+    refreshAll: refreshConnections
+  } = useConnections();
+
+  // Estados locales
+  const [activeTab, setActiveTab] = useState('discover');
   const [searchTerm, setSearchTerm] = useState('');
-  const [isLoadingMatches, setIsLoadingMatches] = useState(true);
+  const [filteredMatches, setFilteredMatches] = useState<MatchUser[]>([]);
+  const [filteredConnections, setFilteredConnections] = useState(connections);
+  const [showFilters, setShowFilters] = useState(false);
+  const [selectedMatch, setSelectedMatch] = useState<MatchUser | null>(null);
+  const [connectionMessage, setConnectionMessage] = useState('');
+  const [connectionType, setConnectionType] = useState('general');
+  const [sendingConnection, setSendingConnection] = useState<string | null>(null);
+
+  // Filtros para descubrimiento
+  const [filters, setFilters] = useState({
+    min_compatibility: 40,
+    industry: '',
+    location: '',
+    connection_type: '',
+    limit: 20
+  });
 
   // Redirect if not authenticated
   useEffect(() => {
@@ -84,101 +106,134 @@ export default function MatchesPage() {
     }
   }, [user, loading, router]);
 
-  // Fetch real matches from API
+  // Cargar datos iniciales
   useEffect(() => {
-    async function loadMatches() {
-      if (!user?.id) return;
-      
-      setIsLoadingMatches(true);
-      try {
-        const realMatches = await fetchUserMatches(user.id);
-        
-        // Convertir datos de la API al formato esperado por el componente
-        const formattedMatches = realMatches.map((match: any) => ({
-          id: match.match_id,
-          userId: match.other_user.id,
-          name: `${match.other_user.first_name || ''} ${match.other_user.last_name || ''}`.trim() || match.other_user.username,
-          username: match.other_user.username,
-          avatar: `${match.other_user.first_name?.[0] || ''}${match.other_user.last_name?.[0] || ''}` || match.other_user.username?.[0]?.toUpperCase() || 'U',
-          title: match.other_user.role || 'Usuario',
-          company: match.other_user.company || 'Sin empresa',
-          location: match.other_user.location || 'Ubicación no especificada',
-          status: match.match_status === 'active' ? 'connected' : 'pending',
-          matchDate: match.matched_at,
-          lastActivity: match.matched_at,
-          mutualConnections: 0, // No disponible en API actual
-          skills: [], // Habría que hacer query adicional para obtener skills
-          isOnline: false, // No disponible en API actual
-          hasUnreadMessages: false, // Habría que hacer query adicional
-          connectionStrength: match.compatibility_score || 0
-        }));
-
-        setMatches(formattedMatches);
-      } catch (error) {
-        console.error('Error loading matches:', error);
-        setMatches([]);
-      } finally {
-        setIsLoadingMatches(false);
-      }
+    if (user) {
+      fetchConnections();
+      fetchConnectionRequests();
     }
+  }, [user]); // Solo depende de user, no de las funciones
 
-    loadMatches();
-  }, [user]);
-
-  // Filter and search logic
+  // Filter matches based on search
   useEffect(() => {
-    let filtered = matches;
-    
-    // Filter by status
-    if (activeFilter !== 'all') {
-      filtered = filtered.filter(match => match.status === activeFilter);
+    if (!searchTerm) {
+      setFilteredMatches(matches);
+      return;
     }
-    
-    // Search by name or company
-    if (searchTerm) {
-      filtered = filtered.filter(match => 
-        match.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        match.company.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        match.username.toLowerCase().includes(searchTerm.toLowerCase())
-      );
-    }
+
+    const filtered = matches.filter(match =>
+      match.first_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      match.last_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      match.username?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      match.company?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      match.role?.toLowerCase().includes(searchTerm.toLowerCase())
+    );
     
     setFilteredMatches(filtered);
-  }, [matches, activeFilter, searchTerm]);
+  }, [matches, searchTerm]);
 
-  const getStatusConfig = (status: Match['status']) => {
-    switch (status) {
-      case 'connected':
-        return {
-          label: 'Conectado',
-          color: 'bg-emerald-100 text-emerald-700 border-emerald-200',
-          icon: CheckCircle
-        };
-      case 'accepted':
-        return {
-          label: 'Aceptado',
-          color: 'bg-blue-100 text-blue-700 border-blue-200',
-          icon: UserCheck
-        };
-      case 'pending':
-        return {
-          label: 'Pendiente',
-          color: 'bg-amber-100 text-amber-700 border-amber-200',
-          icon: Clock
-        };
-      case 'declined':
-        return {
-          label: 'Rechazado',
-          color: 'bg-slate-100 text-slate-700 border-slate-200',
-          icon: XCircle
-        };
-      default:
-        return {
-          label: 'Desconocido',
-          color: 'bg-slate-100 text-slate-700 border-slate-200',
-          icon: Clock
-        };
+  // Filter connections based on search
+  useEffect(() => {
+    if (!searchTerm) {
+      setFilteredConnections(connections);
+      return;
     }
+
+    const filtered = connections.filter(conn =>
+      conn.first_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      conn.last_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      conn.username?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      conn.company?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      conn.role?.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+    
+    setFilteredConnections(filtered);
+  }, [connections, searchTerm]);
+
+  const handleSendConnection = async (match: MatchUser, message: string = '', type: string = 'general') => {
+    if (!match.matched_user_id) return;
+    
+    setSendingConnection(match.matched_user_id);
+    
+    try {
+      const result = await sendConnectionRequest(match.matched_user_id, type, message);
+      
+      if (result.success) {
+        toast({
+          title: "¡Solicitud enviada!",
+          description: `Tu solicitud de conexión ha sido enviada a ${match.first_name || match.username}.`,
+        });
+        setSelectedMatch(null);
+        setConnectionMessage('');
+      } else {
+        toast({
+          title: "Error al enviar solicitud",
+          description: result.error || "Hubo un problema al enviar la solicitud.",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Error inesperado al enviar la solicitud.",
+        variant: "destructive",
+      });
+    } finally {
+      setSendingConnection(null);
+    }
+  };
+
+  const handleRespondConnection = async (connectionId: string, response: 'accepted' | 'rejected') => {
+    try {
+      const result = await respondToConnection(connectionId, response);
+      
+      if (result.success) {
+        toast({
+          title: response === 'accepted' ? "¡Conexión aceptada!" : "Conexión rechazada",
+          description: response === 'accepted' 
+            ? "Ahora pueden comenzar a conversar." 
+            : "La solicitud ha sido rechazada.",
+        });
+        
+        // Refresh both connections and requests
+        await refreshConnections();
+      } else {
+        toast({
+          title: "Error",
+          description: result.error || "Hubo un problema al procesar la respuesta.",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Error inesperado al procesar la respuesta.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleApplyFilters = () => {
+    discoverMatches(filters);
+    setShowFilters(false);
+  };
+
+  const handleStartConversation = (userId: string) => {
+    router.push(`/messages?user=${userId}`);
+  };
+
+  const getCompatibilityColor = (score: number) => {
+    if (score >= 80) return 'text-emerald-600';
+    if (score >= 60) return 'text-blue-600';
+    if (score >= 40) return 'text-amber-600';
+    return 'text-slate-600';
+  };
+
+  const getCompatibilityBg = (score: number) => {
+    if (score >= 80) return 'bg-emerald-100';
+    if (score >= 60) return 'bg-blue-100';
+    if (score >= 40) return 'bg-amber-100';
+    return 'bg-slate-100';
   };
 
   const formatDate = (dateString: string) => {
@@ -192,16 +247,12 @@ export default function MatchesPage() {
     return date.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' });
   };
 
-  const handleStartConversation = (match: Match) => {
-    router.push(`/messages?user=${match.userId}`);
-  };
-
-  if (loading || isLoadingMatches) {
+  if (loading) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-slate-900 mx-auto mb-4"></div>
-          <p className="text-slate-600">Cargando tus matches...</p>
+          <p className="text-slate-600">Cargando...</p>
         </div>
       </div>
     );
@@ -209,18 +260,11 @@ export default function MatchesPage() {
 
   if (!user) return null;
 
-  const stats = {
-    total: matches.length,
-    connected: matches.filter(m => m.status === 'connected').length,
-    pending: matches.filter(m => m.status === 'pending').length,
-    accepted: matches.filter(m => m.status === 'accepted').length
-  };
-
   return (
     <div className="min-h-screen bg-slate-50">
       {/* Header */}
       <div className="bg-white border-b border-slate-200 sticky top-0 z-10">
-        <div className="max-w-6xl mx-auto px-4 py-4">
+        <div className="max-w-7xl mx-auto px-4 py-4">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center space-x-4">
               <Link 
@@ -232,246 +276,584 @@ export default function MatchesPage() {
               </Link>
               <div className="text-slate-300">|</div>
               <h1 className="text-2xl font-bold text-slate-900 flex items-center">
-                <Users className="h-6 w-6 mr-2 text-slate-600" />
-                Mis Conexiones
+                <Sparkles className="h-6 w-6 mr-2 text-purple-600" />
+                Matches & Conexiones
               </h1>
             </div>
 
-            <Link href="/explore">
-              <Button className="bg-slate-900 hover:bg-slate-800 text-white">
-                <UserPlus className="h-4 w-4 mr-2" />
-                Encontrar más personas
+            <div className="flex items-center space-x-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  refreshMatches();
+                  refreshConnections();
+                }}
+                disabled={matchesLoading || connectionsLoading}
+                className="border-slate-200"
+              >
+                <RefreshCw className={`h-4 w-4 mr-1 ${(matchesLoading || connectionsLoading) ? 'animate-spin' : ''}`} />
+                Actualizar
               </Button>
-            </Link>
+              
+              <Link href="/explore">
+                <Button className="bg-slate-900 hover:bg-slate-800 text-white">
+                  <Target className="h-4 w-4 mr-2" />
+                  Descubrir más
+                </Button>
+              </Link>
+            </div>
           </div>
 
-          {/* Search and Filters */}
+          {/* Search */}
           <div className="flex items-center space-x-4">
             <div className="flex-1 relative">
               <Search className="h-4 w-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" />
               <Input
-                placeholder="Buscar por nombre, empresa o username..."
+                placeholder="Buscar personas..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-10 border-slate-200 focus:border-slate-400"
               />
             </div>
-
-            <div className="flex items-center space-x-2">
-              <Button
-                variant={activeFilter === 'all' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setActiveFilter('all')}
-                className={activeFilter === 'all' ? 'bg-slate-900 text-white' : 'border-slate-200'}
-              >
-                Todos ({stats.total})
-              </Button>
-              <Button
-                variant={activeFilter === 'connected' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setActiveFilter('connected')}
-                className={activeFilter === 'connected' ? 'bg-emerald-600 text-white' : 'border-slate-200'}
-              >
-                Conectados ({stats.connected})
-              </Button>
-              <Button
-                variant={activeFilter === 'pending' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setActiveFilter('pending')}
-                className={activeFilter === 'pending' ? 'bg-amber-600 text-white' : 'border-slate-200'}
-              >
-                Pendientes ({stats.pending})
-              </Button>
-            </div>
           </div>
         </div>
       </div>
 
-      <div className="max-w-6xl mx-auto px-4 py-6">
-        {/* Stats Overview */}
-        <div className="grid grid-cols-4 gap-4 mb-6">
-          <Card className="border-slate-200">
-            <CardContent className="p-4 text-center">
-              <div className="text-2xl font-bold text-slate-700 mb-1">{stats.total}</div>
-              <div className="text-sm text-slate-500">Total Matches</div>
-            </CardContent>
-          </Card>
-          <Card className="border-slate-200">
-            <CardContent className="p-4 text-center">
-              <div className="text-2xl font-bold text-emerald-600 mb-1">{stats.connected}</div>
-              <div className="text-sm text-slate-500">Conectados</div>
-            </CardContent>
-          </Card>
-          <Card className="border-slate-200">
-            <CardContent className="p-4 text-center">
-              <div className="text-2xl font-bold text-amber-600 mb-1">{stats.pending}</div>
-              <div className="text-sm text-slate-500">Pendientes</div>
-            </CardContent>
-          </Card>
-          <Card className="border-slate-200">
-            <CardContent className="p-4 text-center">
-              <div className="text-2xl font-bold text-blue-600 mb-1">
-                {matches.filter(m => m.hasUnreadMessages).length}
+      <div className="max-w-7xl mx-auto px-4 py-6">
+        {/* Tabs */}
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-6">
+          <TabsList className="grid w-full grid-cols-4">
+            <TabsTrigger value="discover" className="flex items-center">
+              <Target className="h-4 w-4 mr-2" />
+              Descubrir ({totalFound})
+            </TabsTrigger>
+            <TabsTrigger value="connections" className="flex items-center">
+              <Users className="h-4 w-4 mr-2" />
+              Conexiones ({connectionStats.total_accepted})
+            </TabsTrigger>
+            <TabsTrigger value="requests" className="flex items-center">
+              <Clock className="h-4 w-4 mr-2" />
+              Solicitudes ({connectionStats.pending_received})
+            </TabsTrigger>
+            <TabsTrigger value="sent" className="flex items-center">
+              <Mail className="h-4 w-4 mr-2" />
+              Enviadas ({connectionStats.pending_sent})
+            </TabsTrigger>
+          </TabsList>
+
+          {/* Discover Tab */}
+          <TabsContent value="discover">
+            <div className="space-y-6">
+              {/* Stats */}
+              <div className="grid grid-cols-4 gap-4">
+                <Card>
+                  <CardContent className="p-4 text-center">
+                    <div className="text-2xl font-bold text-purple-600 mb-1">{totalFound}</div>
+                    <div className="text-sm text-slate-500">Matches encontrados</div>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="p-4 text-center">
+                    <div className="text-2xl font-bold text-blue-600 mb-1">{totalPotential}</div>
+                    <div className="text-sm text-slate-500">Potenciales</div>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="p-4 text-center">
+                    <div className="text-2xl font-bold text-emerald-600 mb-1">
+                      {Math.round((totalFound / Math.max(totalPotential, 1)) * 100)}%
+                    </div>
+                    <div className="text-sm text-slate-500">Compatibilidad</div>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="p-4 text-center">
+                    <div className="text-2xl font-bold text-amber-600 mb-1">{connectionStats.weekly_new}</div>
+                    <div className="text-sm text-slate-500">Esta semana</div>
+                  </CardContent>
+                </Card>
               </div>
-              <div className="text-sm text-slate-500">Sin Leer</div>
-            </CardContent>
-          </Card>
-        </div>
 
-        {/* Matches List */}
-        <div className="space-y-4">
-          {filteredMatches.length === 0 ? (
-            <Card className="border-slate-200">
-              <CardContent className="p-12 text-center">
-                <Users className="h-12 w-12 text-slate-400 mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-slate-900 mb-2">
-                  {searchTerm ? 'No se encontraron matches' : 'No tienes matches'}
-                </h3>
-                <p className="text-slate-500 mb-4">
-                  {searchTerm 
-                    ? 'Intenta buscar con otros términos'
-                    : 'Explora perfiles y conecta con otros emprendedores para generar matches'
-                  }
+              {/* Filters */}
+              <div className="flex items-center justify-between">
+                <p className="text-slate-600">
+                  Mostrando {filteredMatches.length} de {totalFound} matches compatibles
                 </p>
-                {!searchTerm && (
-                  <Link href="/explore">
-                    <Button className="bg-slate-900 hover:bg-slate-800 text-white">
-                      <UserPlus className="h-4 w-4 mr-2" />
-                      Explorar Perfiles
+                
+                <Dialog open={showFilters} onOpenChange={setShowFilters}>
+                  <DialogTrigger asChild>
+                    <Button variant="outline" className="border-slate-200">
+                      <Filter className="h-4 w-4 mr-2" />
+                      Filtros
                     </Button>
-                  </Link>
-                )}
-              </CardContent>
-            </Card>
-          ) : (
-            <AnimatePresence>
-              {filteredMatches.map((match, index) => {
-                const statusConfig = getStatusConfig(match.status);
-                const StatusIcon = statusConfig.icon;
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Filtros de búsqueda</DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-4">
+                      <div>
+                        <Label>Compatibilidad mínima: {filters.min_compatibility}%</Label>
+                        <Slider
+                          value={[filters.min_compatibility]}
+                          onValueChange={(value) => setFilters(prev => ({ ...prev, min_compatibility: value[0] }))}
+                          max={100}
+                          min={0}
+                          step={10}
+                          className="mt-2"
+                        />
+                      </div>
+                      
+                      <div>
+                        <Label htmlFor="industry">Industria</Label>
+                        <Input
+                          id="industry"
+                          value={filters.industry}
+                          onChange={(e) => setFilters(prev => ({ ...prev, industry: e.target.value }))}
+                          placeholder="Ej: Tecnología, Fintech..."
+                        />
+                      </div>
+                      
+                      <div>
+                        <Label htmlFor="location">Ubicación</Label>
+                        <Input
+                          id="location"
+                          value={filters.location}
+                          onChange={(e) => setFilters(prev => ({ ...prev, location: e.target.value }))}
+                          placeholder="Ej: México, España..."
+                        />
+                      </div>
 
-                return (
-                  <motion.div
-                    key={match.id}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, x: -100 }}
-                    transition={{ delay: index * 0.1 }}
-                  >
-                    <Card className="border-slate-200 hover:border-slate-300 transition-all duration-200 hover:shadow-md">
+                      <div>
+                        <Label htmlFor="limit">Límite de resultados</Label>
+                        <Select value={filters.limit.toString()} onValueChange={(value) => setFilters(prev => ({ ...prev, limit: parseInt(value) }))}>
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="10">10 resultados</SelectItem>
+                            <SelectItem value="20">20 resultados</SelectItem>
+                            <SelectItem value="50">50 resultados</SelectItem>
+                            <SelectItem value="100">100 resultados</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="flex space-x-2 pt-4">
+                        <Button onClick={handleApplyFilters} className="flex-1">
+                          Aplicar filtros
+                        </Button>
+                        <Button 
+                          variant="outline" 
+                          onClick={() => setFilters({
+                            min_compatibility: 40,
+                            industry: '',
+                            location: '',
+                            connection_type: '',
+                            limit: 20
+                          })}
+                        >
+                          Limpiar
+                        </Button>
+                      </div>
+                    </div>
+                  </DialogContent>
+                </Dialog>
+              </div>
+
+              {/* Matches Grid */}
+              {matchesLoading ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {[...Array(6)].map((_, i) => (
+                    <Card key={i} className="animate-pulse">
                       <CardContent className="p-6">
-                        <div className="flex items-start justify-between">
-                          {/* Left: Avatar and Info */}
-                          <div className="flex items-start space-x-4 flex-1">
-                            <div className="relative">
-                              <div className="w-16 h-16 bg-gradient-to-br from-slate-600 to-slate-800 rounded-lg flex items-center justify-center text-white text-xl font-bold">
-                                {match.avatar}
+                        <div className="h-16 w-16 bg-slate-200 rounded-lg mb-4"></div>
+                        <div className="h-4 bg-slate-200 rounded mb-2"></div>
+                        <div className="h-4 bg-slate-200 rounded w-2/3"></div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              ) : filteredMatches.length === 0 ? (
+                <Card>
+                  <CardContent className="p-12 text-center">
+                    <Target className="h-12 w-12 text-slate-400 mx-auto mb-4" />
+                    <h3 className="text-lg font-medium text-slate-900 mb-2">No hay matches disponibles</h3>
+                    <p className="text-slate-500 mb-4">
+                      Ajusta tus filtros o explora más perfiles para encontrar conexiones compatibles
+                    </p>
+                    <Button onClick={() => discoverMatches()} className="bg-slate-900 hover:bg-slate-800 text-white">
+                      <RefreshCw className="h-4 w-4 mr-2" />
+                      Buscar matches
+                    </Button>
+                  </CardContent>
+                </Card>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  <AnimatePresence>
+                    {filteredMatches.map((match, index) => (
+                      <motion.div
+                        key={match.matched_user_id}
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, scale: 0.95 }}
+                        transition={{ delay: index * 0.1 }}
+                      >
+                        <Card className="hover:shadow-lg transition-all duration-200 border-slate-200 hover:border-slate-300">
+                          <CardContent className="p-6">
+                            <div className="flex items-start justify-between mb-4">
+                              <div className="flex items-start space-x-3">
+                                <div className="relative">
+                                  <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-blue-600 rounded-lg flex items-center justify-center text-white font-bold">
+                                    {match.first_name?.[0]}{match.last_name?.[0]}
+                                  </div>
+                                  {match.is_online && (
+                                    <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-emerald-500 rounded-full border-2 border-white"></div>
+                                  )}
+                                </div>
+                                <div className="flex-1">
+                                  <h3 className="font-semibold text-slate-900 mb-1">
+                                    {match.first_name} {match.last_name}
+                                  </h3>
+                                  <p className="text-sm text-slate-600">@{match.username}</p>
+                                </div>
                               </div>
-                              {match.isOnline && (
-                                <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-emerald-500 rounded-full border-2 border-white"></div>
-                              )}
-                              {match.hasUnreadMessages && (
-                                <div className="absolute -top-1 -right-1 w-3 h-3 bg-blue-500 rounded-full"></div>
+                              
+                              <div className={`px-2 py-1 rounded-full text-xs font-medium ${getCompatibilityBg(match.compatibility_score)} ${getCompatibilityColor(match.compatibility_score)}`}>
+                                {match.compatibility_score}% match
+                              </div>
+                            </div>
+
+                            <div className="space-y-2 mb-4">
+                              <p className="text-sm text-slate-700">
+                                <strong>{match.role}</strong> en {match.company}
+                              </p>
+                              <p className="text-sm text-slate-500">{match.location}</p>
+                              {match.bio && (
+                                <p className="text-sm text-slate-600 line-clamp-2">{match.bio}</p>
                               )}
                             </div>
 
-                            <div className="flex-1">
-                              <div className="flex items-center space-x-2 mb-1">
-                                <h3 className="font-semibold text-slate-900">{match.name}</h3>
-                                <span className="text-slate-400">@{match.username}</span>
-                                {match.status === 'connected' && (
-                                  <Heart className="h-4 w-4 text-red-500 fill-current" />
-                                )}
+                            {/* Match reasons */}
+                            {match.match_reasons && match.match_reasons.length > 0 && (
+                              <div className="mb-4">
+                                <div className="flex flex-wrap gap-1">
+                                  {match.match_reasons.slice(0, 2).map((reason, idx) => (
+                                    <Badge key={idx} variant="outline" className="text-xs border-slate-300">
+                                      {reason}
+                                    </Badge>
+                                  ))}
+                                </div>
                               </div>
-                              
-                              <p className="text-slate-600 mb-2">{match.title} • {match.company}</p>
-                              <p className="text-sm text-slate-500 mb-3">{match.location}</p>
-                              
-                              {/* Skills */}
-                              <div className="flex flex-wrap gap-2 mb-3">
-                                {match.skills.slice(0, 3).map((skill, idx) => (
-                                  <Badge 
-                                    key={idx} 
-                                    variant="outline" 
-                                    className="text-xs border-slate-300 text-slate-700"
+                            )}
+
+                            {/* Common skills */}
+                            {match.common_skills > 0 && (
+                              <div className="mb-4">
+                                <p className="text-xs text-slate-500 mb-2">
+                                  {match.common_skills} habilidades en común
+                                </p>
+                                <div className="flex flex-wrap gap-1">
+                                  {match.common_skills_details?.slice(0, 3).map((skill, idx) => (
+                                    <Badge key={idx} variant="secondary" className="text-xs">
+                                      {skill.skill_name}
+                                    </Badge>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+
+                            <div className="flex space-x-2">
+                              <Dialog>
+                                <DialogTrigger asChild>
+                                  <Button 
+                                    size="sm" 
+                                    className="flex-1 bg-slate-900 hover:bg-slate-800 text-white"
+                                    onClick={() => setSelectedMatch(match)}
                                   >
-                                    {skill}
-                                  </Badge>
-                                ))}
-                                {match.skills.length > 3 && (
-                                  <Badge variant="outline" className="text-xs border-slate-300 text-slate-700">
-                                    +{match.skills.length - 3}
-                                  </Badge>
-                                )}
-                              </div>
+                                    <UserPlus className="h-4 w-4 mr-1" />
+                                    Conectar
+                                  </Button>
+                                </DialogTrigger>
+                                <DialogContent>
+                                  <DialogHeader>
+                                    <DialogTitle>Conectar con {match.first_name} {match.last_name}</DialogTitle>
+                                  </DialogHeader>
+                                  <div className="space-y-4">
+                                    <div>
+                                      <Label htmlFor="connectionType">Tipo de conexión</Label>
+                                      <Select value={connectionType} onValueChange={setConnectionType}>
+                                        <SelectTrigger>
+                                          <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                          <SelectItem value="general">General</SelectItem>
+                                          <SelectItem value="business">Negocios</SelectItem>
+                                          <SelectItem value="mentor">Mentoría</SelectItem>
+                                          <SelectItem value="investor">Inversión</SelectItem>
+                                        </SelectContent>
+                                      </Select>
+                                    </div>
+                                    
+                                    <div>
+                                      <Label htmlFor="message">Mensaje (opcional)</Label>
+                                      <Textarea
+                                        id="message"
+                                        value={connectionMessage}
+                                        onChange={(e) => setConnectionMessage(e.target.value)}
+                                        placeholder="Escribe un mensaje personalizado..."
+                                        rows={3}
+                                      />
+                                    </div>
 
-                              {/* Metadata */}
-                              <div className="flex items-center space-x-4 text-xs text-slate-500">
-                                <span>Match: {formatDate(match.matchDate)}</span>
-                                <span>•</span>
-                                <span>{match.mutualConnections} conexiones mutuas</span>
-                                <span>•</span>
-                                <span>{match.connectionStrength}% compatibilidad</span>
-                              </div>
-                            </div>
-                          </div>
+                                    <div className="flex space-x-2">
+                                      <Button 
+                                        onClick={() => handleSendConnection(match, connectionMessage, connectionType)}
+                                        disabled={sendingConnection === match.matched_user_id}
+                                        className="flex-1"
+                                      >
+                                        {sendingConnection === match.matched_user_id ? (
+                                          <>
+                                            <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                                            Enviando...
+                                          </>
+                                        ) : (
+                                          <>
+                                            <Mail className="h-4 w-4 mr-2" />
+                                            Enviar solicitud
+                                          </>
+                                        )}
+                                      </Button>
+                                    </div>
+                                  </div>
+                                </DialogContent>
+                              </Dialog>
 
-                          {/* Right: Status and Actions */}
-                          <div className="flex flex-col items-end space-y-3">
-                            <Badge className={`${statusConfig.color} border`}>
-                              <StatusIcon className="h-3 w-3 mr-1" />
-                              {statusConfig.label}
-                            </Badge>
-
-                            <div className="flex items-center space-x-2">
-                              {match.status === 'connected' && (
-                                <Button
-                                  size="sm"
-                                  onClick={() => handleStartConversation(match)}
-                                  className="bg-slate-900 hover:bg-slate-800 text-white"
-                                >
-                                  <MessageCircle className="h-4 w-4 mr-1" />
-                                  Chatear
-                                </Button>
-                              )}
-
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => router.push(`/profile/${match.userId}`)}
+                              <Button 
+                                size="sm" 
+                                variant="outline" 
+                                onClick={() => router.push(`/profile/${match.matched_user_id}`)}
                                 className="border-slate-200"
                               >
-                                <Eye className="h-4 w-4 mr-1" />
-                                Ver perfil
+                                <Eye className="h-4 w-4" />
                               </Button>
-
-                              <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                  <Button size="sm" variant="outline" className="border-slate-200 p-2">
-                                    <MoreHorizontal className="h-4 w-4" />
-                                  </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent>
-                                  <DropdownMenuItem>
-                                    <Calendar className="h-4 w-4 mr-2" />
-                                    Agendar reunión
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem className="text-red-600">
-                                    <Trash2 className="h-4 w-4 mr-2" />
-                                    Eliminar match
-                                  </DropdownMenuItem>
-                                </DropdownMenuContent>
-                              </DropdownMenu>
                             </div>
+                          </CardContent>
+                        </Card>
+                      </motion.div>
+                    ))}
+                  </AnimatePresence>
+                </div>
+              )}
+            </div>
+          </TabsContent>
+
+          {/* Connections Tab */}
+          <TabsContent value="connections">
+            <div className="space-y-6">
+              {connectionsLoading ? (
+                <div className="space-y-4">
+                  {[...Array(5)].map((_, i) => (
+                    <Card key={i} className="animate-pulse">
+                      <CardContent className="p-6">
+                        <div className="flex items-center space-x-4">
+                          <div className="h-12 w-12 bg-slate-200 rounded-lg"></div>
+                          <div className="flex-1">
+                            <div className="h-4 bg-slate-200 rounded mb-2"></div>
+                            <div className="h-4 bg-slate-200 rounded w-2/3"></div>
                           </div>
                         </div>
                       </CardContent>
                     </Card>
-                  </motion.div>
-                );
-              })}
-            </AnimatePresence>
-          )}
-        </div>
+                  ))}
+                </div>
+              ) : filteredConnections.length === 0 ? (
+                <Card>
+                  <CardContent className="p-12 text-center">
+                    <Users className="h-12 w-12 text-slate-400 mx-auto mb-4" />
+                    <h3 className="text-lg font-medium text-slate-900 mb-2">No tienes conexiones aún</h3>
+                    <p className="text-slate-500 mb-4">
+                      Explora perfiles y conecta con otros emprendedores para construir tu red
+                    </p>
+                    <Link href="/explore">
+                      <Button className="bg-slate-900 hover:bg-slate-800 text-white">
+                        <Target className="h-4 w-4 mr-2" />
+                        Explorar perfiles
+                      </Button>
+                    </Link>
+                  </CardContent>
+                </Card>
+              ) : (
+                <div className="space-y-4">
+                  {filteredConnections.map((connection) => (
+                    <Card key={connection.connection_id} className="hover:shadow-md transition-all duration-200">
+                      <CardContent className="p-6">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center space-x-4">
+                            <div className="relative">
+                              <div className="w-12 h-12 bg-gradient-to-br from-emerald-500 to-blue-600 rounded-lg flex items-center justify-center text-white font-bold">
+                                {connection.first_name?.[0]}{connection.last_name?.[0]}
+                              </div>
+                              {connection.is_online && (
+                                <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-emerald-500 rounded-full border-2 border-white"></div>
+                              )}
+                            </div>
+                            
+                            <div className="flex-1">
+                              <h3 className="font-semibold text-slate-900 mb-1">
+                                {connection.first_name} {connection.last_name}
+                              </h3>
+                              <p className="text-sm text-slate-600 mb-1">
+                                {connection.role} • {connection.company}
+                              </p>
+                              <div className="flex items-center text-xs text-slate-500 space-x-2">
+                                <span>Conectados {formatDate(connection.connected_at)}</span>
+                                {connection.last_message && (
+                                  <>
+                                    <span>•</span>
+                                    <span>Último mensaje: {formatDate(connection.last_message_at || connection.connected_at)}</span>
+                                  </>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                          
+                          <div className="flex items-center space-x-2">
+                            <Button
+                              size="sm"
+                              onClick={() => handleStartConversation(connection.connected_user_id)}
+                              className="bg-slate-900 hover:bg-slate-800 text-white"
+                            >
+                              <MessageCircle className="h-4 w-4 mr-1" />
+                              Chatear
+                            </Button>
+                            
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button size="sm" variant="outline" className="border-slate-200 p-2">
+                                  <MoreHorizontal className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent>
+                                <DropdownMenuItem onClick={() => router.push(`/profile/${connection.connected_user_id}`)}>
+                                  <Eye className="h-4 w-4 mr-2" />
+                                  Ver perfil
+                                </DropdownMenuItem>
+                                <DropdownMenuItem>
+                                  <Calendar className="h-4 w-4 mr-2" />
+                                  Agendar reunión
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </div>
+          </TabsContent>
+
+          {/* Connection Requests Tab */}
+          <TabsContent value="requests">
+            <div className="space-y-6">
+              {connectionsLoading ? (
+                <div className="space-y-4">
+                  {[...Array(3)].map((_, i) => (
+                    <Card key={i} className="animate-pulse">
+                      <CardContent className="p-6">
+                        <div className="flex items-center space-x-4">
+                          <div className="h-12 w-12 bg-slate-200 rounded-lg"></div>
+                          <div className="flex-1">
+                            <div className="h-4 bg-slate-200 rounded mb-2"></div>
+                            <div className="h-4 bg-slate-200 rounded w-2/3"></div>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              ) : connectionRequests.length === 0 ? (
+                <Card>
+                  <CardContent className="p-12 text-center">
+                    <Clock className="h-12 w-12 text-slate-400 mx-auto mb-4" />
+                    <h3 className="text-lg font-medium text-slate-900 mb-2">No tienes solicitudes pendientes</h3>
+                    <p className="text-slate-500">Las nuevas solicitudes de conexión aparecerán aquí</p>
+                  </CardContent>
+                </Card>
+              ) : (
+                <div className="space-y-4">
+                  {connectionRequests.map((request) => (
+                    <Card key={request.id} className="border-l-4 border-amber-400">
+                      <CardContent className="p-6">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center space-x-4">
+                            <div className="w-12 h-12 bg-gradient-to-br from-amber-500 to-orange-600 rounded-lg flex items-center justify-center text-white font-bold">
+                              {request.requester.first_name?.[0]}{request.requester.last_name?.[0]}
+                            </div>
+                            
+                            <div className="flex-1">
+                              <h3 className="font-semibold text-slate-900 mb-1">
+                                {request.requester.first_name} {request.requester.last_name}
+                              </h3>
+                              <p className="text-sm text-slate-600 mb-1">
+                                {request.requester.role} • {request.requester.company}
+                              </p>
+                              <p className="text-xs text-slate-500 mb-2">
+                                Solicitud enviada {formatDate(request.created_at)}
+                              </p>
+                              {request.message && (
+                                <div className="bg-slate-50 p-3 rounded-lg mt-2">
+                                  <p className="text-sm text-slate-700">"{request.message}"</p>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                          
+                          <div className="flex items-center space-x-2">
+                            <Button
+                              size="sm"
+                              onClick={() => handleRespondConnection(request.id, 'accepted')}
+                              className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                            >
+                              <CheckCircle className="h-4 w-4 mr-1" />
+                              Aceptar
+                            </Button>
+                            
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleRespondConnection(request.id, 'rejected')}
+                              className="border-slate-200 text-slate-600 hover:text-slate-800"
+                            >
+                              <XCircle className="h-4 w-4 mr-1" />
+                              Rechazar
+                            </Button>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </div>
+          </TabsContent>
+
+          {/* Sent Requests Tab */}
+          <TabsContent value="sent">
+            <Card>
+              <CardContent className="p-12 text-center">
+                <Mail className="h-12 w-12 text-slate-400 mx-auto mb-4" />
+                <h3 className="text-lg font-medium text-slate-900 mb-2">Solicitudes enviadas</h3>
+                <p className="text-slate-500">
+                  Aquí verás el estado de las solicitudes que has enviado
+                </p>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
       </div>
     </div>
   );

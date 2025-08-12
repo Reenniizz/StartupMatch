@@ -289,20 +289,20 @@ export default function DashboardPage() {
                       <p className="text-blue-100 text-sm font-medium mb-1">
                         Conexiones Activas
                       </p>
-                      <p className="text-white text-3xl font-bold">
+                      <div className="text-white text-3xl font-bold">
                         {statsLoading ? (
                           <div className="w-16 h-8 bg-white/20 rounded animate-pulse"></div>
                         ) : (
                           stats?.connections.total || 0
                         )}
-                      </p>
-                      <p className="text-blue-200 text-xs mt-2 flex items-center">
+                      </div>
+                      <div className="text-blue-200 text-xs mt-2 flex items-center">
                         {statsLoading ? (
                           <div className="w-20 h-4 bg-white/20 rounded animate-pulse"></div>
                         ) : (
                           <>⬆️ {stats?.connections.weeklyChangeText || 'Sin cambios esta semana'}</>
                         )}
-                      </p>
+                      </div>
                     </div>
                     <div className="p-3 bg-white/10 rounded-full">
                       <Handshake className="h-8 w-8 text-white" />
@@ -330,20 +330,20 @@ export default function DashboardPage() {
                       <p className="text-purple-100 text-sm font-medium mb-1">
                         Matches Perfectos
                       </p>
-                      <p className="text-white text-3xl font-bold">
+                      <div className="text-white text-3xl font-bold">
                         {statsLoading ? (
                           <div className="w-16 h-8 bg-white/20 rounded animate-pulse"></div>
                         ) : (
                           stats?.matches.total || 0
                         )}
-                      </p>
-                      <p className="text-purple-200 text-xs mt-2 flex items-center">
+                      </div>
+                      <div className="text-purple-200 text-xs mt-2 flex items-center">
                         {statsLoading ? (
                           <div className="w-20 h-4 bg-white/20 rounded animate-pulse"></div>
                         ) : (
                           <>🎯 {stats?.matches.dailyNewText || 'Sin nuevos hoy'}</>
                         )}
-                      </p>
+                      </div>
                     </div>
                     <div className="p-3 bg-white/10 rounded-full">
                       <Heart className="h-8 w-8 text-white" />
@@ -371,20 +371,20 @@ export default function DashboardPage() {
                       <p className="text-green-100 text-sm font-medium mb-1">
                         Conversaciones
                       </p>
-                      <p className="text-white text-3xl font-bold">
+                      <div className="text-white text-3xl font-bold">
                         {statsLoading ? (
                           <div className="w-16 h-8 bg-white/20 rounded animate-pulse"></div>
                         ) : (
                           stats?.conversations.total || 0
                         )}
-                      </p>
-                      <p className="text-green-200 text-xs mt-2 flex items-center">
+                      </div>
+                      <div className="text-green-200 text-xs mt-2 flex items-center">
                         {statsLoading ? (
                           <div className="w-20 h-4 bg-white/20 rounded animate-pulse"></div>
                         ) : (
                           <>💬 {stats?.conversations.unreadText || 'Todo leído'}</>
                         )}
-                      </p>
+                      </div>
                     </div>
                     <div className="p-3 bg-white/10 rounded-full">
                       <MessageSquare className="h-8 w-8 text-white" />
@@ -412,20 +412,20 @@ export default function DashboardPage() {
                       <p className="text-orange-100 text-sm font-medium mb-1">
                         Tasa de Éxito
                       </p>
-                      <p className="text-white text-3xl font-bold">
+                      <div className="text-white text-3xl font-bold">
                         {statsLoading ? (
                           <div className="w-16 h-8 bg-white/20 rounded animate-pulse"></div>
                         ) : (
                           `${stats?.successRate.percentage || 0}%`
                         )}
-                      </p>
-                      <p className="text-orange-200 text-xs mt-2 flex items-center">
+                      </div>
+                      <div className="text-orange-200 text-xs mt-2 flex items-center">
                         {statsLoading ? (
                           <div className="w-20 h-4 bg-white/20 rounded animate-pulse"></div>
                         ) : (
                           <>📈 {stats?.successRate.changeText || '0% vs mes anterior'}</>
                         )}
-                      </p>
+                      </div>
                     </div>
                     <div className="p-3 bg-white/10 rounded-full">
                       <BarChart3 className="h-8 w-8 text-white" />

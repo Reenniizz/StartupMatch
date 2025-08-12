@@ -38,9 +38,9 @@ export async function GET(request: NextRequest) {
     // Obtener usuarios potenciales usando la función de BD
     const { data: potentialUsers, error } = await supabase
       .rpc('get_potential_matches', {
-        target_user_id: userId,
-        limit_count: limit * 2, // Obtener más para calcular y filtrar
-        min_compatibility: 50
+        p_target_user_id: userId,
+        p_limit_count: limit * 2, // Obtener más para calcular y filtrar
+        p_min_compatibility: 50
       });
 
     if (error) {
