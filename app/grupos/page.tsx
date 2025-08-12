@@ -9,7 +9,6 @@ import {
   ArrowLeft, 
   Users,
   MessageSquare,
-  Calendar,
   MapPin,
   Search,
   Filter,
@@ -32,39 +31,23 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import CreateGroupModal from "@/components/CreateGroupModal";
+import GroupDetailsModal from "@/components/GroupDetailsModal";
 
 // Tipos de datos para grupos
-interface GroupMember {
-  id: string;
-  name: string;
-  role: string;
-  avatar: string;
-  isOnline: boolean;
-}
-
 interface Group {
   id: string;
   name: string;
   description: string;
   category: string;
   memberCount: number;
-  messagesCount: number;
+  messagesCount?: number;
   isPrivate: boolean;
-  coverImage: string;
   lastActivity: string;
   tags: string[];
-  recentMembers: GroupMember[];
   isMember: boolean;
-  isVerified: boolean;
+  isVerified?: boolean;
   location?: string;
-  nextEvent?: {
-    title: string;
-    date: string;
-  };
 }
-
-// Lista vacía de grupos - sin datos mock
-const mockGroups: Group[] = [];
 
 export default function GruposPage() {
   const { user, loading } = useAuth();
@@ -72,9 +55,11 @@ export default function GruposPage() {
   const [selectedCategory, setSelectedCategory] = useState('Todos');
   const [searchTerm, setSearchTerm] = useState('');
   const [showFilters, setShowFilters] = useState(false);
-  const [groups, setGroups] = useState(mockGroups);
+  const [groups, setGroups] = useState<Group[]>([]);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [isLoadingGroups, setIsLoadingGroups] = useState(false);
+  const [selectedGroup, setSelectedGroup] = useState<Group | null>(null);
+  const [showGroupDetails, setShowGroupDetails] = useState(false);
 
   // Calcular conteos dinámicos de categorías
   const getDynamicCategories = () => {
@@ -137,6 +122,18 @@ export default function GruposPage() {
     loadGroups(); // Recargar la lista de grupos
   };
 
+  // Función para ver detalles del grupo
+  const viewGroupDetails = (group: Group) => {
+    setSelectedGroup(group);
+    setShowGroupDetails(true);
+  };
+
+  // Función para cerrar detalles del grupo
+  const closeGroupDetails = () => {
+    setSelectedGroup(null);
+    setShowGroupDetails(false);
+  };
+
   // Función para unirse a un grupo
   const joinGroup = async (groupId: string) => {
     if (!user) return;
@@ -172,16 +169,42 @@ export default function GruposPage() {
     return matchesCategory && matchesSearch;
   });
 
-  const getCoverGradient = (coverImage: string) => {
-    const gradients = {
-      fintech: 'from-emerald-500 to-teal-600',
-      ai: 'from-purple-500 to-indigo-600',
-      preseed: 'from-orange-500 to-red-600',
-      women: 'from-pink-500 to-rose-600',
-      gdl: 'from-blue-500 to-cyan-600',
-      investors: 'from-slate-600 to-gray-700'
+  const getCoverGradient = (category: string, groupName?: string) => {
+    // Gradientes basados en categoría
+    const categoryGradients = {
+      'Industria': 'from-emerald-500 to-teal-600',
+      'Tecnología': 'from-purple-500 to-indigo-600', 
+      'Stage': 'from-orange-500 to-red-600',
+      'Inversión': 'from-green-500 to-emerald-600',
+      'Ubicación': 'from-blue-500 to-cyan-600',
+      'Comunidad': 'from-pink-500 to-rose-600'
     };
-    return gradients[coverImage as keyof typeof gradients] || 'from-slate-500 to-gray-600';
+
+    // Usar gradiente de categoría si existe
+    if (categoryGradients[category as keyof typeof categoryGradients]) {
+      return categoryGradients[category as keyof typeof categoryGradients];
+    }
+
+    // Gradiente por defecto basado en el hash del nombre del grupo
+    if (groupName) {
+      const hash = groupName.split('').reduce((a, b) => {
+        a = ((a << 5) - a) + b.charCodeAt(0);
+        return a & a;
+      }, 0);
+      
+      const gradients = [
+        'from-slate-500 to-gray-600',
+        'from-blue-500 to-indigo-600',
+        'from-purple-500 to-pink-600',
+        'from-green-500 to-teal-600',
+        'from-yellow-500 to-orange-600',
+        'from-red-500 to-pink-600'
+      ];
+      
+      return gradients[Math.abs(hash) % gradients.length];
+    }
+
+    return 'from-slate-500 to-gray-600';
   };
 
   if (loading) {
@@ -299,9 +322,30 @@ export default function GruposPage() {
               </div>
             </div>
 
-            {/* Groups Grid */}
-            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-              {filteredGroups.map((group, index) => (
+            {/* Loading State */}
+            {isLoadingGroups ? (
+              <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                {[1, 2, 3, 4, 5, 6].map((n) => (
+                  <Card key={n} className="border-slate-200 overflow-hidden">
+                    <div className="h-32 bg-slate-200 animate-pulse"></div>
+                    <CardContent className="p-4">
+                      <div className="space-y-3">
+                        <div className="h-4 bg-slate-200 rounded animate-pulse"></div>
+                        <div className="h-3 bg-slate-200 rounded animate-pulse w-2/3"></div>
+                        <div className="flex space-x-2">
+                          <div className="h-6 bg-slate-200 rounded animate-pulse w-16"></div>
+                          <div className="h-6 bg-slate-200 rounded animate-pulse w-16"></div>
+                        </div>
+                        <div className="h-8 bg-slate-200 rounded animate-pulse"></div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            ) : (
+              /* Groups Grid */
+              <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                {filteredGroups.map((group, index) => (
                 <motion.div
                   key={group.id}
                   initial={{ opacity: 0, y: 20 }}
@@ -310,7 +354,7 @@ export default function GruposPage() {
                 >
                   <Card className="border-slate-200 hover:shadow-lg transition-all duration-200 group cursor-pointer overflow-hidden">
                     {/* Cover Image */}
-                    <div className={`h-32 bg-gradient-to-br ${getCoverGradient(group.coverImage)} relative`}>
+                    <div className={`h-32 bg-gradient-to-br ${getCoverGradient(group.category, group.name)} relative`}>
                       <div className="absolute top-3 right-3 flex items-center space-x-2">
                         {group.isVerified && (
                           <Badge className="bg-white/20 text-white border-white/30">
@@ -327,18 +371,14 @@ export default function GruposPage() {
                       
                       <div className="absolute bottom-3 left-3">
                         <div className="flex items-center space-x-2">
-                          {group.recentMembers.slice(0, 3).map((member, idx) => (
-                            <div
-                              key={member.id}
-                              className="w-8 h-8 bg-white/90 rounded-full flex items-center justify-center text-xs font-bold text-slate-700 border-2 border-white"
-                              style={{ marginLeft: idx > 0 ? '-8px' : '0' }}
-                            >
-                              {member.avatar}
-                            </div>
-                          ))}
-                          {group.recentMembers.length > 3 && (
+                          {/* Mostrar iniciales del grupo como placeholder de avatar */}
+                          <div className="w-8 h-8 bg-white/90 rounded-full flex items-center justify-center text-xs font-bold text-slate-700 border-2 border-white">
+                            {group.name.substring(0, 2).toUpperCase()}
+                          </div>
+                          {/* Mostrar contador de miembros si hay más de 1 */}
+                          {group.memberCount > 1 && (
                             <div className="w-8 h-8 bg-white/70 rounded-full flex items-center justify-center text-xs font-bold text-slate-600 border-2 border-white -ml-2">
-                              +{group.recentMembers.length - 3}
+                              +{group.memberCount - 1}
                             </div>
                           )}
                         </div>
@@ -365,7 +405,7 @@ export default function GruposPage() {
                           </div>
                           <div className="flex items-center">
                             <MessageSquare className="h-4 w-4 mr-1" />
-                            {group.messagesCount > 1000 ? `${Math.floor(group.messagesCount / 1000)}k` : group.messagesCount}
+                            {group.messagesCount ? (group.messagesCount > 1000 ? `${Math.floor(group.messagesCount / 1000)}k` : group.messagesCount) : 0}
                           </div>
                         </div>
                         <div className="flex items-center text-xs">
@@ -388,19 +428,6 @@ export default function GruposPage() {
                         )}
                       </div>
 
-                      {/* Next Event */}
-                      {group.nextEvent && (
-                        <div className="mb-4 p-2 bg-blue-50 rounded-lg border border-blue-200">
-                          <div className="flex items-center text-blue-700">
-                            <Calendar className="h-4 w-4 mr-2" />
-                            <div>
-                              <div className="text-xs font-medium">{group.nextEvent.title}</div>
-                              <div className="text-xs">{group.nextEvent.date}</div>
-                            </div>
-                          </div>
-                        </div>
-                      )}
-
                       {/* Actions */}
                       <div className="flex items-center space-x-2">
                         {group.isMember ? (
@@ -419,7 +446,12 @@ export default function GruposPage() {
                             Unirse
                           </Button>
                         )}
-                        <Button size="sm" variant="outline" className="border-slate-300">
+                        <Button 
+                          size="sm" 
+                          variant="outline" 
+                          className="border-slate-300"
+                          onClick={() => viewGroupDetails(group)}
+                        >
                           <Eye className="h-4 w-4" />
                         </Button>
                       </div>
@@ -427,19 +459,28 @@ export default function GruposPage() {
                   </Card>
                 </motion.div>
               ))}
-            </div>
+              </div>
+            )}
 
             {/* Empty State */}
-            {filteredGroups.length === 0 && (
+            {!isLoadingGroups && filteredGroups.length === 0 && (
               <div className="text-center py-16">
                 <Users className="h-16 w-16 mx-auto text-slate-300 mb-4" />
-                <h3 className="text-xl font-semibold text-slate-600 mb-2">Todavía no hay grupos</h3>
+                <h3 className="text-xl font-semibold text-slate-600 mb-2">
+                  {searchTerm || selectedCategory !== 'Todos' 
+                    ? 'No se encontraron grupos' 
+                    : 'Aún no hay grupos disponibles'
+                  }
+                </h3>
                 <p className="text-slate-500 mb-6">
-                  Si quieres crear uno, pulsa aquí
+                  {searchTerm || selectedCategory !== 'Todos'
+                    ? 'Prueba con otros términos de búsqueda o categorías'
+                    : 'Sé el primero en crear un grupo para tu comunidad'
+                  }
                 </p>
                 <Button onClick={() => setShowCreateModal(true)}>
                   <Plus className="h-4 w-4 mr-2" />
-                  Crear Nuevo Grupo
+                  Crear Primer Grupo
                 </Button>
               </div>
             )}
@@ -452,6 +493,14 @@ export default function GruposPage() {
         isOpen={showCreateModal}
         onClose={() => setShowCreateModal(false)}
         onGroupCreated={handleGroupCreated}
+      />
+
+      {/* Modal para ver detalles del grupo */}
+      <GroupDetailsModal
+        group={selectedGroup}
+        isOpen={showGroupDetails}
+        onClose={closeGroupDetails}
+        onJoinGroup={joinGroup}
       />
     </div>
   );

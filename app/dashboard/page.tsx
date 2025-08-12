@@ -30,6 +30,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { useDashboardStats } from "@/hooks/useDashboardStats";
+import { usePopularGroups } from "@/hooks/usePopularGroups";
 
 const sidebarItems = [
   { id: "dashboard", label: "Dashboard", icon: Home, href: "/dashboard" },
@@ -48,6 +50,8 @@ const sidebarItems = [
 export default function DashboardPage() {
   const router = useRouter();
   const { user, signOut, loading } = useAuth();
+  const { stats, loading: statsLoading, error: statsError } = useDashboardStats();
+  const { groups: popularGroups, loading: groupsLoading } = usePopularGroups();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [activeSection, setActiveSection] = useState("dashboard");
@@ -285,9 +289,19 @@ export default function DashboardPage() {
                       <p className="text-blue-100 text-sm font-medium mb-1">
                         Conexiones Activas
                       </p>
-                      <p className="text-white text-3xl font-bold">142</p>
+                      <p className="text-white text-3xl font-bold">
+                        {statsLoading ? (
+                          <div className="w-16 h-8 bg-white/20 rounded animate-pulse"></div>
+                        ) : (
+                          stats?.connections.total || 0
+                        )}
+                      </p>
                       <p className="text-blue-200 text-xs mt-2 flex items-center">
-                        ⬆️ +23 esta semana
+                        {statsLoading ? (
+                          <div className="w-20 h-4 bg-white/20 rounded animate-pulse"></div>
+                        ) : (
+                          <>⬆️ {stats?.connections.weeklyChangeText || 'Sin cambios esta semana'}</>
+                        )}
                       </p>
                     </div>
                     <div className="p-3 bg-white/10 rounded-full">
@@ -316,9 +330,19 @@ export default function DashboardPage() {
                       <p className="text-purple-100 text-sm font-medium mb-1">
                         Matches Perfectos
                       </p>
-                      <p className="text-white text-3xl font-bold">24</p>
+                      <p className="text-white text-3xl font-bold">
+                        {statsLoading ? (
+                          <div className="w-16 h-8 bg-white/20 rounded animate-pulse"></div>
+                        ) : (
+                          stats?.matches.total || 0
+                        )}
+                      </p>
                       <p className="text-purple-200 text-xs mt-2 flex items-center">
-                        🎯 +7 nuevos hoy
+                        {statsLoading ? (
+                          <div className="w-20 h-4 bg-white/20 rounded animate-pulse"></div>
+                        ) : (
+                          <>🎯 {stats?.matches.dailyNewText || 'Sin nuevos hoy'}</>
+                        )}
                       </p>
                     </div>
                     <div className="p-3 bg-white/10 rounded-full">
@@ -347,9 +371,19 @@ export default function DashboardPage() {
                       <p className="text-green-100 text-sm font-medium mb-1">
                         Conversaciones
                       </p>
-                      <p className="text-white text-3xl font-bold">18</p>
+                      <p className="text-white text-3xl font-bold">
+                        {statsLoading ? (
+                          <div className="w-16 h-8 bg-white/20 rounded animate-pulse"></div>
+                        ) : (
+                          stats?.conversations.total || 0
+                        )}
+                      </p>
                       <p className="text-green-200 text-xs mt-2 flex items-center">
-                        💬 5 sin leer
+                        {statsLoading ? (
+                          <div className="w-20 h-4 bg-white/20 rounded animate-pulse"></div>
+                        ) : (
+                          <>💬 {stats?.conversations.unreadText || 'Todo leído'}</>
+                        )}
                       </p>
                     </div>
                     <div className="p-3 bg-white/10 rounded-full">
@@ -378,9 +412,19 @@ export default function DashboardPage() {
                       <p className="text-orange-100 text-sm font-medium mb-1">
                         Tasa de Éxito
                       </p>
-                      <p className="text-white text-3xl font-bold">89%</p>
+                      <p className="text-white text-3xl font-bold">
+                        {statsLoading ? (
+                          <div className="w-16 h-8 bg-white/20 rounded animate-pulse"></div>
+                        ) : (
+                          `${stats?.successRate.percentage || 0}%`
+                        )}
+                      </p>
                       <p className="text-orange-200 text-xs mt-2 flex items-center">
-                        📈 +12% vs mes anterior
+                        {statsLoading ? (
+                          <div className="w-20 h-4 bg-white/20 rounded animate-pulse"></div>
+                        ) : (
+                          <>📈 {stats?.successRate.changeText || '0% vs mes anterior'}</>
+                        )}
                       </p>
                     </div>
                     <div className="p-3 bg-white/10 rounded-full">
@@ -558,86 +602,67 @@ export default function DashboardPage() {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-3">
-                    {/* Grupo 1 */}
-                    <Link href="/grupos">
-                      <motion.div 
-                        className={`flex items-center space-x-3 p-3 rounded-lg transition-all duration-300 hover:scale-105 cursor-pointer ${
-                          isDarkMode ? 'bg-emerald-900/20 hover:bg-emerald-900/30' : 'bg-emerald-50 hover:bg-emerald-100'
-                        }`}
-                        whileHover={{ scale: 1.02 }}
-                      >
-                        <div className="w-10 h-10 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-lg flex items-center justify-center">
-                          <span className="text-white font-bold text-sm">FT</span>
+                    {groupsLoading ? (
+                      // Loading skeleton
+                      [1, 2, 3].map((n) => (
+                        <div key={n} className="flex items-center space-x-3 p-3 rounded-lg bg-slate-50 animate-pulse">
+                          <div className="w-10 h-10 bg-slate-200 rounded-lg"></div>
+                          <div className="flex-1 space-y-2">
+                            <div className="h-4 bg-slate-200 rounded w-3/4"></div>
+                            <div className="h-3 bg-slate-200 rounded w-1/2"></div>
+                          </div>
+                          <div className="h-6 bg-slate-200 rounded w-16"></div>
                         </div>
-                        <div className="flex-1 min-w-0">
-                          <p className={`text-sm font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                            Fundadores FinTech México
-                          </p>
-                          <p className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                            127 miembros • 5 nuevos mensajes
-                          </p>
-                        </div>
-                        <div className={`px-2 py-1 rounded-full text-xs ${
-                          isDarkMode ? 'bg-emerald-800 text-emerald-300' : 'bg-emerald-100 text-emerald-700'
-                        }`}>
-                          Activo
-                        </div>
-                      </motion.div>
-                    </Link>
-
-                    {/* Grupo 2 */}
-                    <Link href="/grupos">
-                      <motion.div 
-                        className={`flex items-center space-x-3 p-3 rounded-lg transition-all duration-300 hover:scale-105 cursor-pointer ${
-                          isDarkMode ? 'bg-purple-900/20 hover:bg-purple-900/30' : 'bg-purple-50 hover:bg-purple-100'
-                        }`}
-                        whileHover={{ scale: 1.02 }}
-                      >
-                        <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-lg flex items-center justify-center">
-                          <span className="text-white font-bold text-sm">AI</span>
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className={`text-sm font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                            AI Developers Network
-                          </p>
-                          <p className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                            234 miembros • Evento mañana
-                          </p>
-                        </div>
-                        <div className={`px-2 py-1 rounded-full text-xs ${
-                          isDarkMode ? 'bg-blue-800 text-blue-300' : 'bg-blue-100 text-blue-700'
-                        }`}>
-                          Unirse
-                        </div>
-                      </motion.div>
-                    </Link>
-
-                    {/* Grupo 3 */}
-                    <Link href="/grupos">
-                      <motion.div 
-                        className={`flex items-center space-x-3 p-3 rounded-lg transition-all duration-300 hover:scale-105 cursor-pointer ${
-                          isDarkMode ? 'bg-orange-900/20 hover:bg-orange-900/30' : 'bg-orange-50 hover:bg-orange-100'
-                        }`}
-                        whileHover={{ scale: 1.02 }}
-                      >
-                        <div className="w-10 h-10 bg-gradient-to-br from-orange-500 to-red-600 rounded-lg flex items-center justify-center">
-                          <span className="text-white font-bold text-sm">PS</span>
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className={`text-sm font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                            Startups Pre-Seed
-                          </p>
-                          <p className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                            89 miembros • 2 nuevos mensajes
-                          </p>
-                        </div>
-                        <div className={`px-2 py-1 rounded-full text-xs ${
-                          isDarkMode ? 'bg-green-800 text-green-300' : 'bg-green-100 text-green-700'
-                        }`}>
-                          Miembro
-                        </div>
-                      </motion.div>
-                    </Link>
+                      ))
+                    ) : popularGroups.length > 0 ? (
+                      // Grupos reales
+                      popularGroups.map((group, index) => (
+                        <Link key={group.id} href="/grupos">
+                          <motion.div 
+                            className={`flex items-center space-x-3 p-3 rounded-lg transition-all duration-300 hover:scale-105 cursor-pointer ${
+                              isDarkMode ? `bg-${group.gradient.split('-')[1]}-900/20 hover:bg-${group.gradient.split('-')[1]}-900/30` : `bg-${group.gradient.split('-')[1]}-50 hover:bg-${group.gradient.split('-')[1]}-100`
+                            }`}
+                            whileHover={{ scale: 1.02 }}
+                          >
+                            <div className={`w-10 h-10 bg-gradient-to-br ${group.gradient} rounded-lg flex items-center justify-center`}>
+                              <span className="text-white font-bold text-sm">{group.initials}</span>
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className={`text-sm font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                                {group.name}
+                              </p>
+                              <p className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                                {group.memberCount} miembros
+                                {group.recentMessages > 0 && ` • ${group.recentMessages} nuevos mensajes`}
+                              </p>
+                            </div>
+                            <div className={`px-2 py-1 rounded-full text-xs ${
+                              group.status === 'Miembro' 
+                                ? (isDarkMode ? 'bg-green-800 text-green-300' : 'bg-green-100 text-green-700')
+                                : group.status === 'Activo'
+                                ? (isDarkMode ? 'bg-emerald-800 text-emerald-300' : 'bg-emerald-100 text-emerald-700')
+                                : (isDarkMode ? 'bg-blue-800 text-blue-300' : 'bg-blue-100 text-blue-700')
+                            }`}>
+                              {group.status}
+                            </div>
+                          </motion.div>
+                        </Link>
+                      ))
+                    ) : (
+                      // Estado vacío
+                      <div className="text-center py-8">
+                        <Users className={`h-12 w-12 mx-auto mb-3 ${isDarkMode ? 'text-gray-600' : 'text-gray-300'}`} />
+                        <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                          No hay grupos disponibles aún
+                        </p>
+                        <Link 
+                          href="/grupos" 
+                          className="inline-block mt-2 text-xs text-blue-600 hover:text-blue-700"
+                        >
+                          Explorar grupos
+                        </Link>
+                      </div>
+                    )}
                   </div>
                 </CardContent>
               </Card>

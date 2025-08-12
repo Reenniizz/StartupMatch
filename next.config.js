@@ -10,6 +10,24 @@ const nextConfig = {
     domains: [], // Add allowed domains for external images
   },
   
+  // Suppress Supabase realtime warnings
+  webpack: (config, { isServer }) => {
+    if (!isServer) {
+      config.resolve.fallback = {
+        ...config.resolve.fallback,
+        fs: false,
+      };
+    }
+    
+    // Suppress specific warnings
+    config.ignoreWarnings = [
+      { module: /node_modules\/@supabase\/realtime-js/ },
+      /Critical dependency: the request of a dependency is an expression/,
+    ];
+    
+    return config;
+  },
+  
   // Security headers
   async headers() {
     return [
