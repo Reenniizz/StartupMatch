@@ -39,11 +39,11 @@ const useSocket = (): SocketHook => {
 
       try {
         // Inicializar servidor Socket.IO
-        await fetch('/api/socket')
+        await fetch('/api/socketio')
         
         // Conectar cliente
         const socketInstance = io({
-          path: '/api/socket',
+          path: '/api/socketio',
           addTrailingSlash: false,
         });
 

@@ -34,11 +34,11 @@ export default function PrivacyPage() {
           <div className="flex items-center justify-between py-4">
             <div className="flex items-center gap-4">
               <Link 
-                href="/"
+                href="/dashboard"
                 className="flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-colors"
               >
                 <ArrowLeft className="w-5 h-5" />
-                <span className="font-medium">Volver</span>
+                <span className="font-medium">Dashboard</span>
               </Link>
               <div className="h-6 w-px bg-gray-300"></div>
               <div className="flex items-center gap-3">

@@ -53,89 +53,29 @@ interface Match {
   connectionStrength: number; // 1-100
 }
 
-// Mock data para matches existentes
-const mockMatches: Match[] = [
-  {
-    id: '1',
-    userId: 'user-123',
-    name: 'María González',
-    username: 'mariag',
-    avatar: 'MG',
-    title: 'CEO & Founder',
-    company: 'TechStart Solutions',
-    location: 'CDMX, México',
-    status: 'connected',
-    matchDate: '2024-01-15',
-    lastActivity: '2024-01-16',
-    mutualConnections: 5,
-    skills: ['React', 'TypeScript', 'Product Management'],
-    isOnline: true,
-    hasUnreadMessages: true,
-    connectionStrength: 95
-  },
-  {
-    id: '2',
-    userId: 'user-456',
-    name: 'Dr. Carlos Rodríguez',
-    username: 'carlosr',
-    avatar: 'CR',
-    title: 'CTO & Co-Founder',
-    company: 'EcoMetrics Analytics',
-    location: 'Guadalajara, México',
-    status: 'accepted',
-    matchDate: '2024-01-10',
-    lastActivity: '2024-01-14',
-    mutualConnections: 3,
-    skills: ['Python', 'Machine Learning', 'IoT'],
-    isOnline: false,
-    hasUnreadMessages: false,
-    connectionStrength: 87
-  },
-  {
-    id: '3',
-    userId: 'user-789',
-    name: 'Dra. Ana Martínez',
-    username: 'anam',
-    avatar: 'AM',
-    title: 'Chief Medical Officer',
-    company: 'HealthAI Diagnostics',
-    location: 'Monterrey, México',
-    status: 'pending',
-    matchDate: '2024-01-12',
-    lastActivity: '2024-01-12',
-    mutualConnections: 2,
-    skills: ['AI', 'Healthcare', 'Computer Vision'],
-    isOnline: true,
-    hasUnreadMessages: false,
-    connectionStrength: 91
-  },
-  {
-    id: '4',
-    userId: 'user-101',
-    name: 'Luis Fernández',
-    username: 'luisf',
-    avatar: 'LF',
-    title: 'VP of Engineering',
-    company: 'DataFlow Systems',
-    location: 'Puebla, México',
-    status: 'connected',
-    matchDate: '2024-01-08',
-    lastActivity: '2024-01-15',
-    mutualConnections: 7,
-    skills: ['Node.js', 'AWS', 'DevOps'],
-    isOnline: false,
-    hasUnreadMessages: true,
-    connectionStrength: 78
+// API para obtener matches reales del usuario
+async function fetchUserMatches(userId: string) {
+  try {
+    const response = await fetch(`/api/mutual-matches?userId=${userId}&status=active`);
+    if (!response.ok) {
+      throw new Error('Error fetching matches');
+    }
+    const data = await response.json();
+    return data.matches || [];
+  } catch (error) {
+    console.error('Error fetching user matches:', error);
+    return [];
   }
-];
+}
 
 export default function MatchesPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
-  const [matches, setMatches] = useState<Match[]>(mockMatches);
-  const [filteredMatches, setFilteredMatches] = useState<Match[]>(mockMatches);
+  const [matches, setMatches] = useState<Match[]>([]);
+  const [filteredMatches, setFilteredMatches] = useState<Match[]>([]);
   const [activeFilter, setActiveFilter] = useState<'all' | 'connected' | 'pending' | 'accepted'>('all');
   const [searchTerm, setSearchTerm] = useState('');
+  const [isLoadingMatches, setIsLoadingMatches] = useState(true);
 
   // Redirect if not authenticated
   useEffect(() => {
@@ -143,6 +83,47 @@ export default function MatchesPage() {
       router.push("/login");
     }
   }, [user, loading, router]);
+
+  // Fetch real matches from API
+  useEffect(() => {
+    async function loadMatches() {
+      if (!user?.id) return;
+      
+      setIsLoadingMatches(true);
+      try {
+        const realMatches = await fetchUserMatches(user.id);
+        
+        // Convertir datos de la API al formato esperado por el componente
+        const formattedMatches = realMatches.map((match: any) => ({
+          id: match.match_id,
+          userId: match.other_user.id,
+          name: `${match.other_user.first_name || ''} ${match.other_user.last_name || ''}`.trim() || match.other_user.username,
+          username: match.other_user.username,
+          avatar: `${match.other_user.first_name?.[0] || ''}${match.other_user.last_name?.[0] || ''}` || match.other_user.username?.[0]?.toUpperCase() || 'U',
+          title: match.other_user.role || 'Usuario',
+          company: match.other_user.company || 'Sin empresa',
+          location: match.other_user.location || 'Ubicación no especificada',
+          status: match.match_status === 'active' ? 'connected' : 'pending',
+          matchDate: match.matched_at,
+          lastActivity: match.matched_at,
+          mutualConnections: 0, // No disponible en API actual
+          skills: [], // Habría que hacer query adicional para obtener skills
+          isOnline: false, // No disponible en API actual
+          hasUnreadMessages: false, // Habría que hacer query adicional
+          connectionStrength: match.compatibility_score || 0
+        }));
+
+        setMatches(formattedMatches);
+      } catch (error) {
+        console.error('Error loading matches:', error);
+        setMatches([]);
+      } finally {
+        setIsLoadingMatches(false);
+      }
+    }
+
+    loadMatches();
+  }, [user]);
 
   // Filter and search logic
   useEffect(() => {
@@ -215,10 +196,13 @@ export default function MatchesPage() {
     router.push(`/messages?user=${match.userId}`);
   };
 
-  if (loading) {
+  if (loading || isLoadingMatches) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">
-        <div className="loading-spinner"></div>
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-slate-900 mx-auto mb-4"></div>
+          <p className="text-slate-600">Cargando tus matches...</p>
+        </div>
       </div>
     );
   }
@@ -341,12 +325,12 @@ export default function MatchesPage() {
               <CardContent className="p-12 text-center">
                 <Users className="h-12 w-12 text-slate-400 mx-auto mb-4" />
                 <h3 className="text-lg font-medium text-slate-900 mb-2">
-                  {searchTerm ? 'No se encontraron matches' : 'No tienes matches aún'}
+                  {searchTerm ? 'No se encontraron matches' : 'No tienes matches'}
                 </h3>
                 <p className="text-slate-500 mb-4">
                   {searchTerm 
                     ? 'Intenta buscar con otros términos'
-                    : 'Explora perfiles y conecta con otros emprendedores'
+                    : 'Explora perfiles y conecta con otros emprendedores para generar matches'
                   }
                 </p>
                 {!searchTerm && (

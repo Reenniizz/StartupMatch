@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { useAuth } from "@/contexts/AuthProvider";
+import { useUserProfile, UserProfile } from "@/hooks/useUserProfile";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { 
@@ -19,88 +20,209 @@ import {
   Star,
   Users,
   Briefcase,
-  Calendar
+  Calendar,
+  Plus,
+  AlertCircle,
+  CheckCircle
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { useToast } from "@/hooks/use-toast";
 
 export default function ProfilePage() {
-  const { user, loading } = useAuth();
+  const { user, loading: authLoading } = useAuth();
+  const { 
+    profile, 
+    skills, 
+    experience, 
+    loading: profileLoading, 
+    error, 
+    saveProfile, 
+    saveSkill, 
+    removeSkill 
+  } = useUserProfile();
   const router = useRouter();
+  const { toast } = useToast();
+  
   const [isEditing, setIsEditing] = useState(false);
-  const [profileData, setProfileData] = useState({
-    displayName: '',
+  const [saving, setSaving] = useState(false);
+  const [profileData, setProfileData] = useState<Partial<UserProfile>>({
     username: '',
+    first_name: '',
+    last_name: '',
+    email: '',
     bio: '',
     location: '',
-    website: '',
-    linkedin: '',
-    twitter: '',
-    github: '',
-    skills: [] as string[],
-    interests: [] as string[],
-    experience: 'Beginner'
+    role: '',
+    company: '',
+    industry: '',
+    headline: '',
+    linkedin_url: '',
+    twitter_url: '',
+    github_url: '',
+    portfolio_url: '',
+    experience_years: 0,
+    availability_hours: 40,
+    profile_visibility: 'public',
   });
+  const [newSkill, setNewSkill] = useState({ name: '', level: 5, category: 'technical' });
 
   // Redirect if not authenticated
   useEffect(() => {
-    if (!loading && !user) {
+    if (!authLoading && !user) {
       router.push("/login");
     }
-  }, [user, loading, router]);
+  }, [user, authLoading, router]);
 
-  // Load user data
+  // Load profile data when it becomes available
   useEffect(() => {
-    if (user) {
+    if (profile) {
       setProfileData({
-        displayName: user.user_metadata?.full_name || user.email?.split('@')[0] || '',
-        username: user.user_metadata?.username || user.email?.split('@')[0] || '',
-        bio: user.user_metadata?.bio || '',
-        location: user.user_metadata?.location || '',
-        website: user.user_metadata?.website || '',
-        linkedin: user.user_metadata?.linkedin || '',
-        twitter: user.user_metadata?.twitter || '',
-        github: user.user_metadata?.github || '',
-        skills: user.user_metadata?.skills || ['React', 'TypeScript', 'Node.js'],
-        interests: user.user_metadata?.interests || ['Startups', 'Tech', 'Innovation'],
-        experience: user.user_metadata?.experience || 'Intermediate'
+        username: profile.username || '',
+        first_name: profile.first_name || '',
+        last_name: profile.last_name || '',
+        email: profile.email || user?.email || '',
+        bio: profile.bio || '',
+        location: profile.location || '',
+        role: profile.role || '',
+        company: profile.company || '',
+        industry: profile.industry || '',
+        headline: profile.headline || '',
+        linkedin_url: profile.linkedin_url || '',
+        twitter_url: profile.twitter_url || '',
+        github_url: profile.github_url || '',
+        portfolio_url: profile.portfolio_url || '',
+        experience_years: profile.experience_years || 0,
+        availability_hours: profile.availability_hours || 40,
+        profile_visibility: profile.profile_visibility || 'public',
+      });
+    } else if (user && !profileLoading) {
+      // If no profile exists, initialize with user data
+      setProfileData(prev => ({
+        ...prev,
+        email: user.email || '',
+        username: user.email?.split('@')[0] || '',
+        first_name: user.user_metadata?.full_name?.split(' ')[0] || '',
+        last_name: user.user_metadata?.full_name?.split(' ').slice(1).join(' ') || '',
+      }));
+    }
+  }, [profile, user, profileLoading]);
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      const result = await saveProfile(profileData);
+      
+      if (result?.error) {
+        toast({
+          title: "Error",
+          description: result.error,
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Éxito",
+          description: "Perfil actualizado correctamente",
+        });
+        setIsEditing(false);
+      }
+    } catch (err) {
+      toast({
+        title: "Error",
+        description: "Error inesperado al guardar el perfil",
+        variant: "destructive",
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleSkillAdd = async () => {
+    if (!newSkill.name.trim()) return;
+
+    try {
+      const result = await saveSkill({
+        skill_name: newSkill.name.trim(),
+        skill_level: newSkill.level,
+        skill_category: newSkill.category,
+        is_primary: false,
+      });
+
+      if (result?.error) {
+        toast({
+          title: "Error",
+          description: result.error,
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Éxito",
+          description: "Habilidad agregada correctamente",
+        });
+        setNewSkill({ name: '', level: 5, category: 'technical' });
+      }
+    } catch (err) {
+      toast({
+        title: "Error",
+        description: "Error al agregar la habilidad",
+        variant: "destructive",
       });
     }
-  }, [user]);
-
-  const handleSave = () => {
-    // Here you would typically save to Supabase
-    console.log('Saving profile data:', profileData);
-    setIsEditing(false);
-    // TODO: Implement actual save to Supabase user metadata
   };
 
-  const handleSkillAdd = (skill: string) => {
-    if (skill && !profileData.skills.includes(skill)) {
-      setProfileData({
-        ...profileData,
-        skills: [...profileData.skills, skill]
+  const handleSkillRemove = async (skillId: string) => {
+    try {
+      const result = await removeSkill(skillId);
+      
+      if (result?.error) {
+        toast({
+          title: "Error",
+          description: result.error,
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Éxito",
+          description: "Habilidad eliminada correctamente",
+        });
+      }
+    } catch (err) {
+      toast({
+        title: "Error",
+        description: "Error al eliminar la habilidad",
+        variant: "destructive",
       });
     }
   };
 
-  const handleSkillRemove = (skillToRemove: string) => {
-    setProfileData({
-      ...profileData,
-      skills: profileData.skills.filter(skill => skill !== skillToRemove)
-    });
-  };
-
-  if (loading) {
+  if (authLoading || profileLoading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+        <div className="text-center">
+          <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-600">Cargando perfil...</p>
+        </div>
       </div>
     );
   }
 
   if (!user) return null;
+
+  const profileCompletion = () => {
+    const fields = [
+      profileData.first_name,
+      profileData.last_name,
+      profileData.bio,
+      profileData.location,
+      profileData.role,
+      profileData.industry,
+      skills.length > 0
+    ];
+    const completed = fields.filter(Boolean).length;
+    return Math.round((completed / fields.length) * 100);
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-purple-50">
@@ -180,7 +302,7 @@ export default function ProfilePage() {
                       whileHover={{ scale: 1.05 }}
                       className="w-32 h-32 bg-gradient-to-br from-blue-500 via-purple-600 to-pink-500 rounded-full flex items-center justify-center text-white text-4xl font-bold shadow-lg"
                     >
-                      {profileData.displayName.charAt(0).toUpperCase() || 'U'}
+                      {(profileData.first_name?.charAt(0) || profileData.username?.charAt(0) || 'U').toUpperCase()}
                     </motion.div>
                     {isEditing && (
                       <motion.button 
@@ -200,15 +322,22 @@ export default function ProfilePage() {
                     <div className="space-y-3">
                       <input
                         type="text"
-                        placeholder="Nombre completo"
-                        value={profileData.displayName}
-                        onChange={(e) => setProfileData({...profileData, displayName: e.target.value})}
+                        placeholder="Nombre"
+                        value={profileData.first_name || ''}
+                        onChange={(e) => setProfileData({...profileData, first_name: e.target.value})}
+                        className="w-full px-3 py-2 border-2 border-blue-200 rounded-lg text-center font-medium focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+                      />
+                      <input
+                        type="text"
+                        placeholder="Apellido"
+                        value={profileData.last_name || ''}
+                        onChange={(e) => setProfileData({...profileData, last_name: e.target.value})}
                         className="w-full px-3 py-2 border-2 border-blue-200 rounded-lg text-center font-medium focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
                       />
                       <input
                         type="text"
                         placeholder="@username"
-                        value={profileData.username}
+                        value={profileData.username || ''}
                         onChange={(e) => setProfileData({...profileData, username: e.target.value})}
                         className="w-full px-3 py-2 border-2 border-purple-200 rounded-lg text-center text-gray-600 focus:border-purple-500 focus:ring-2 focus:ring-purple-200"
                       />
@@ -216,9 +345,9 @@ export default function ProfilePage() {
                   ) : (
                     <>
                       <h2 className="text-2xl font-bold text-gray-900 mt-4">
-                        {profileData.displayName}
+                        {`${profileData.first_name || ''} ${profileData.last_name || ''}`.trim() || 'Sin nombre'}
                       </h2>
-                      <p className="text-blue-600 font-medium">@{profileData.username}</p>
+                      <p className="text-blue-600 font-medium">@{profileData.username || 'username'}</p>
                       <div className="flex items-center justify-center mt-2">
                         <span className="inline-flex items-center px-2 py-1 bg-green-100 text-green-800 text-xs font-medium rounded-full">
                           <div className="w-2 h-2 bg-green-500 rounded-full mr-1 animate-pulse"></div>
@@ -272,18 +401,18 @@ export default function ProfilePage() {
                     {isEditing ? (
                       <input
                         type="url"
-                        placeholder="Website"
-                        value={profileData.website}
-                        onChange={(e) => setProfileData({...profileData, website: e.target.value})}
+                        placeholder="Portfolio URL"
+                        value={profileData.portfolio_url || ''}
+                        onChange={(e) => setProfileData({...profileData, portfolio_url: e.target.value})}
                         className="flex-1 px-2 py-1 border-2 border-purple-200 rounded focus:border-purple-500"
                       />
                     ) : (
-                      profileData.website ? (
-                        <a href={profileData.website} target="_blank" rel="noopener noreferrer" className="text-purple-600 hover:text-purple-800 font-medium hover:underline">
-                          {profileData.website}
+                      profileData.portfolio_url ? (
+                        <a href={profileData.portfolio_url} target="_blank" rel="noopener noreferrer" className="text-purple-600 hover:text-purple-800 font-medium hover:underline">
+                          {profileData.portfolio_url}
                         </a>
                       ) : (
-                        <span className="text-gray-500">No website</span>
+                        <span className="text-gray-500">No portfolio</span>
                       )
                     )}
                   </div>
@@ -301,8 +430,8 @@ export default function ProfilePage() {
                           <input
                             type="text"
                             placeholder="LinkedIn"
-                            value={profileData.linkedin}
-                            onChange={(e) => setProfileData({...profileData, linkedin: e.target.value})}
+                            value={profileData.linkedin_url || ''}
+                            onChange={(e) => setProfileData({...profileData, linkedin_url: e.target.value})}
                             className="w-full px-1 py-1 border rounded text-xs text-center"
                           />
                         ) : (
@@ -319,8 +448,8 @@ export default function ProfilePage() {
                           <input
                             type="text"
                             placeholder="Twitter"
-                            value={profileData.twitter}
-                            onChange={(e) => setProfileData({...profileData, twitter: e.target.value})}
+                            value={profileData.twitter_url || ''}
+                            onChange={(e) => setProfileData({...profileData, twitter_url: e.target.value})}
                             className="w-full px-1 py-1 border rounded text-xs text-center"
                           />
                         ) : (
@@ -337,8 +466,8 @@ export default function ProfilePage() {
                           <input
                             type="text"
                             placeholder="GitHub"
-                            value={profileData.github}
-                            onChange={(e) => setProfileData({...profileData, github: e.target.value})}
+                            value={profileData.github_url || ''}
+                            onChange={(e) => setProfileData({...profileData, github_url: e.target.value})}
                             className="w-full px-1 py-1 border rounded text-xs text-center"
                           />
                         ) : (
@@ -424,13 +553,14 @@ export default function ProfilePage() {
               </CardHeader>
               <CardContent>
                 <div className="flex flex-wrap gap-2">
-                  {profileData.skills.map((skill, index) => (
-                    <div key={index} className="relative group">
+                  {skills.map((skill) => (
+                    <div key={skill.id} className="relative group">
                       <Badge variant="secondary" className="pr-6">
-                        {skill}
+                        {skill.skill_name}
+                        <span className="ml-1 text-xs opacity-70">({skill.skill_level}/10)</span>
                         {isEditing && (
                           <button
-                            onClick={() => handleSkillRemove(skill)}
+                            onClick={() => skill.id && handleSkillRemove(skill.id)}
                             className="absolute right-1 top-1/2 transform -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity"
                           >
                             <X className="h-3 w-3" />
@@ -441,70 +571,107 @@ export default function ProfilePage() {
                   ))}
                   
                   {isEditing && (
-                    <button
-                      onClick={() => {
-                        const skill = prompt('Agregar nueva habilidad:');
-                        if (skill) handleSkillAdd(skill);
-                      }}
-                      className="px-3 py-1 border border-dashed border-gray-300 rounded-full text-sm text-gray-500 hover:border-gray-400"
-                    >
-                      + Agregar
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        placeholder="Nueva habilidad"
+                        value={newSkill.name}
+                        onChange={(e) => setNewSkill({ ...newSkill, name: e.target.value })}
+                        className="px-2 py-1 border border-gray-300 rounded text-sm"
+                      />
+                      <select
+                        value={newSkill.category}
+                        onChange={(e) => setNewSkill({ ...newSkill, category: e.target.value })}
+                        className="px-2 py-1 border border-gray-300 rounded text-sm"
+                      >
+                        <option value="technical">Técnica</option>
+                        <option value="soft">Blanda</option>
+                        <option value="business">Negocio</option>
+                        <option value="design">Diseño</option>
+                      </select>
+                      <input
+                        type="number"
+                        min="1"
+                        max="10"
+                        placeholder="Nivel (1-10)"
+                        value={newSkill.level}
+                        onChange={(e) => setNewSkill({ ...newSkill, level: parseInt(e.target.value) || 1 })}
+                        className="w-20 px-2 py-1 border border-gray-300 rounded text-sm"
+                      />
+                      <button
+                        onClick={handleSkillAdd}
+                        className="px-3 py-1 bg-blue-500 text-white rounded text-sm hover:bg-blue-600"
+                      >
+                        Agregar
+                      </button>
+                    </div>
                   )}
                 </div>
               </CardContent>
             </Card>
 
-            {/* Interests Card */}
+            {/* Industry & Role Card */}
             <Card>
               <CardHeader>
-                <CardTitle>Intereses</CardTitle>
+                <CardTitle>Experiencia Profesional</CardTitle>
               </CardHeader>
-              <CardContent>
-                <div className="flex flex-wrap gap-2">
-                  {profileData.interests.map((interest, index) => (
-                    <Badge key={index} variant="outline">
-                      {interest}
-                    </Badge>
-                  ))}
+              <CardContent className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Industria</label>
+                  {isEditing ? (
+                    <input
+                      type="text"
+                      placeholder="ej. Tecnología, Finanzas, Salud"
+                      value={profileData.industry || ''}
+                      onChange={(e) => setProfileData({...profileData, industry: e.target.value})}
+                      className="w-full px-3 py-2 border rounded-lg"
+                    />
+                  ) : (
+                    <p className="text-gray-900">{profileData.industry || 'No especificada'}</p>
+                  )}
                 </div>
-              </CardContent>
-            </Card>
-
-            {/* Experience Level Card */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Nivel de Experiencia</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {isEditing ? (
-                  <select
-                    value={profileData.experience}
-                    onChange={(e) => setProfileData({...profileData, experience: e.target.value})}
-                    className="w-full px-3 py-2 border rounded-lg"
-                  >
-                    <option value="Beginner">Principiante</option>
-                    <option value="Intermediate">Intermedio</option>
-                    <option value="Advanced">Avanzado</option>
-                    <option value="Expert">Experto</option>
-                  </select>
-                ) : (
-                  <div className="flex items-center space-x-2">
-                    <div className="flex-1 bg-gray-200 rounded-full h-2">
-                      <div 
-                        className="bg-blue-600 h-2 rounded-full" 
-                        style={{
-                          width: profileData.experience === 'Beginner' ? '25%' :
-                                 profileData.experience === 'Intermediate' ? '50%' :
-                                 profileData.experience === 'Advanced' ? '75%' : '100%'
-                        }}
-                      ></div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Rol/Posición</label>
+                  {isEditing ? (
+                    <input
+                      type="text"
+                      placeholder="ej. Desarrollador Frontend, CEO, Designer"
+                      value={profileData.role || ''}
+                      onChange={(e) => setProfileData({...profileData, role: e.target.value})}
+                      className="w-full px-3 py-2 border rounded-lg"
+                    />
+                  ) : (
+                    <p className="text-gray-900">{profileData.role || 'No especificado'}</p>
+                  )}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Años de experiencia</label>
+                  {isEditing ? (
+                    <input
+                      type="number"
+                      min="0"
+                      max="50"
+                      placeholder="Años de experiencia"
+                      value={profileData.experience_years || 0}
+                      onChange={(e) => setProfileData({...profileData, experience_years: parseInt(e.target.value) || 0})}
+                      className="w-full px-3 py-2 border rounded-lg"
+                    />
+                  ) : (
+                    <div className="flex items-center space-x-2">
+                      <div className="flex-1 bg-gray-200 rounded-full h-2">
+                        <div 
+                          className="bg-blue-600 h-2 rounded-full" 
+                          style={{
+                            width: Math.min(((profileData.experience_years || 0) / 20) * 100, 100) + '%'
+                          }}
+                        ></div>
+                      </div>
+                      <span className="text-sm font-medium text-gray-600">
+                        {profileData.experience_years || 0} años
+                      </span>
                     </div>
-                    <span className="text-sm font-medium text-gray-600">
-                      {profileData.experience}
-                    </span>
-                  </div>
-                )}
+                  )}
+                </div>
               </CardContent>
             </Card>
 
