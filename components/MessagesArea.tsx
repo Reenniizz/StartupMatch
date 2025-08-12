@@ -21,11 +21,11 @@ interface UiSettings {
 }
 
 interface Message {
-  id: number;
-  sender: string;
+  id: number | string;
+  sender: 'me' | 'other';
   message: string;
   timestamp: string;
-  status: string;
+  status: 'sending' | 'sent' | 'delivered' | 'read' | 'error';
 }
 
 interface MessagesAreaProps {

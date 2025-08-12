@@ -54,152 +54,41 @@ import MessageInput from "@/components/MessageInput";
 import TimezoneInfo from "@/components/TimezoneInfo";
 import { formatMadridTime, formatRelativeTime, formatMessageTime } from "@/lib/timezone";
 
-// Mock data for conversations
-const mockConversations = [
-  {
-    id: 1,
-    name: "María González",
-    company: "TechStart Solutions",
-    avatar: "MG",
-    lastMessage: "¿Podemos programar una llamada para mañana?",
-    timestamp: "2 min",
-    unread: 2,
-    online: true,
-    isMatch: true,
-    type: "individual"
-  },
-  {
-    id: 2,
-    name: "Carlos Rodríguez", 
-    company: "EcoGreen Startup",
-    avatar: "CR",
-    lastMessage: "Perfecto, envío los documentos ahora",
-    timestamp: "1h",
-    unread: 0,
-    online: false,
-    isMatch: true,
-    type: "individual"
-  },
-  {
-    id: 3,
-    name: "Dr. Ana Martínez",
-    company: "HealthAI Platform",
-    avatar: "AM", 
-    lastMessage: "Gracias por la información compartida",
-    timestamp: "3h",
-    unread: 1,
-    online: true,
-    isMatch: true,
-    type: "individual"
-  },
-  {
-    id: 4,
-    name: "Roberto Silva",
-    company: "FinanceApp Co",
-    avatar: "RS",
-    lastMessage: "¿Tienes experiencia con blockchain?",
-    timestamp: "1d",
-    unread: 0,
-    online: false,
-    isMatch: false,
-    type: "individual"
-  }
-];
+// Tipos para las conversaciones y mensajes
+interface Conversation {
+  id: string | number;
+  name: string;
+  company?: string;
+  avatar: string;
+  lastMessage: string;
+  timestamp: string;
+  unread: number;
+  online: boolean;
+  isMatch: boolean;
+  type: 'individual';
+}
 
-// Mock data for group conversations
-const mockGroupConversations = [
-  {
-    id: 101,
-    name: "Founders FinTech LATAM",
-    description: "Red de fundadores FinTech en Latinoamérica",
-    avatar: "FF",
-    lastMessage: "Ana: Nueva regulación en México, ¿opiniones?",
-    timestamp: "5 min",
-    unread: 3,
-    memberCount: 24,
-    isPrivate: false,
-    type: "group",
-    category: "Industria"
-  },
-  {
-    id: 102,
-    name: "React & Next.js Devs",
-    description: "Desarrolladores especializados en React y Next.js",
-    avatar: "RN",
-    lastMessage: "Carlos: Alguien tiene experiencia con App Router?",
-    timestamp: "15 min",
-    unread: 1,
-    memberCount: 18,
-    isPrivate: false,
-    type: "group",
-    category: "Tecnología"
-  },
-  {
-    id: 103,
-    name: "Seed Stage Founders",
-    description: "Fundadores en etapa de seed funding",
-    avatar: "SS",
-    lastMessage: "María: Compartiendo pitch deck template",
-    timestamp: "1h",
-    unread: 0,
-    memberCount: 12,
-    isPrivate: true,
-    type: "group",
-    category: "Stage"
-  },
-  {
-    id: 104,
-    name: "México City Startup Hub",
-    description: "Comunidad de startups en CDMX",
-    avatar: "MC",
-    lastMessage: "Luis: Evento de networking este viernes",
-    timestamp: "2h",
-    unread: 2,
-    memberCount: 35,
-    isPrivate: false,
-    type: "group",
-    category: "Ubicación"
-  }
-];
+interface GroupConversation {
+  id: string | number;
+  name: string;
+  description: string;
+  avatar: string;
+  lastMessage: string;
+  timestamp: string;
+  unread: number;
+  memberCount: number;
+  isPrivate: boolean;
+  type: 'group';
+  category: string;
+}
 
-// Mock messages for active conversation
-const mockMessages = [
-  {
-    id: 1,
-    sender: "other",
-    message: "¡Hola! Vi tu perfil y me parece muy interesante tu experiencia en React",
-    timestamp: "10:30 AM",
-    status: "read"
-  },
-  {
-    id: 2,
-    sender: "me",
-    message: "¡Gracias! Tu startup también me llamó mucho la atención. El enfoque en FinTech es muy prometedor",
-    timestamp: "10:32 AM", 
-    status: "read"
-  },
-  {
-    id: 3,
-    sender: "other",
-    message: "Exacto, estamos buscando un desarrollador frontend senior. ¿Te interesaría conocer más detalles?",
-    timestamp: "10:35 AM",
-    status: "read"
-  },
-  {
-    id: 4,
-    sender: "me",
-    message: "Definitivamente me interesa. ¿Podemos programar una videollamada?",
-    timestamp: "10:40 AM",
-    status: "delivered"
-  },
-  {
-    id: 5,
-    sender: "other",
-    message: "¿Podemos programar una llamada para mañana?",
-    timestamp: "2 min ago",
-    status: "sent"
-  }
-];
+interface Message {
+  id: number | string;
+  sender: 'me' | 'other';
+  message: string;
+  timestamp: string;
+  status: 'sending' | 'sent' | 'delivered' | 'read' | 'error';
+}
 
 export default function MessagesPage() {
   const { user, loading } = useAuth();
@@ -212,11 +101,11 @@ export default function MessagesPage() {
   };
   
   const effectiveUser = user || testUser; // Use real user or fallback to test user
-  const [conversations, setConversations] = useState(mockConversations);
-  const [groupConversations, setGroupConversations] = useState(mockGroupConversations);
-  const [activeConversation, setActiveConversation] = useState<string | number | null>(1);
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [groupConversations, setGroupConversations] = useState<GroupConversation[]>([]);
+  const [activeConversation, setActiveConversation] = useState<string | number | null>(null);
   const [activeConversationType, setActiveConversationType] = useState('individual');
-  const [messages, setMessages] = useState(mockMessages);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [showCreateGroup, setShowCreateGroup] = useState(false);
@@ -355,43 +244,80 @@ export default function MessagesPage() {
     console.log('🔄 Cargando conversaciones para usuario:', effectiveUser.id);
     
     try {
-      const { data, error } = await supabase
+      // Primero obtenemos las conversaciones
+      const { data: conversations, error: conversationsError } = await supabase
         .from('conversations')
         .select('id, user1_id, user2_id, created_at')
         .or(`user1_id.eq.${effectiveUser.id},user2_id.eq.${effectiveUser.id}`)
         .order('created_at', { ascending: false });
 
-      if (error) {
-        console.error('❌ Error:', error.message);
-        // Mantener mocks como fallback
+      if (conversationsError) {
+        console.error('❌ Error obteniendo conversaciones:', conversationsError.message);
         return;
       }
 
-      console.log('✅ Conversaciones encontradas:', data?.length || 0);
+      console.log('✅ Conversaciones encontradas:', conversations?.length || 0);
 
-      if (data && data.length > 0) {
-        const realConversations = data.map((conv) => {
+      if (conversations && conversations.length > 0) {
+        // Obtener los IDs de todos los otros usuarios
+        const otherUserIds = conversations.map(conv => 
+          conv.user1_id === effectiveUser.id ? conv.user2_id : conv.user1_id
+        );
+
+        // Obtener los perfiles de los otros usuarios
+        const { data: profiles, error: profilesError } = await supabase
+          .from('user_profiles')
+          .select('user_id, username, first_name, last_name, company')
+          .in('user_id', otherUserIds);
+
+        if (profilesError) {
+          console.error('❌ Error obteniendo perfiles:', profilesError.message);
+        }
+
+        console.log('✅ Perfiles obtenidos:', profiles?.length || 0);
+        console.log('🔍 IDs buscados:', otherUserIds);
+        console.log('👥 Perfiles encontrados:', profiles);
+
+        const realConversations: Conversation[] = conversations.map((conv: any) => {
           const otherUserId = conv.user1_id === effectiveUser.id ? conv.user2_id : conv.user1_id;
+          const otherUserProfile = profiles?.find(profile => profile.user_id === otherUserId);
+          
+          // Construir el nombre del usuario
+          let userName = `Usuario ${otherUserId.slice(0, 8)}`;  // Fallback
+          
+          if (otherUserProfile) {
+            if (otherUserProfile.username) {
+              userName = otherUserProfile.username;
+            } else if (otherUserProfile.first_name && otherUserProfile.last_name) {
+              userName = `${otherUserProfile.first_name} ${otherUserProfile.last_name}`;
+            } else if (otherUserProfile.first_name) {
+              userName = otherUserProfile.first_name;
+            }
+          }
+          
           return {
             id: conv.id, // UUID de la conversación real
-            name: `Usuario ${otherUserId.slice(0, 8)}`,
-            company: 'StartupMatch',
-            avatar: 'SM',
+            name: userName,
+            company: otherUserProfile?.company || 'StartupMatch',
+            avatar: userName.charAt(0).toUpperCase() || 'U',
             lastMessage: 'Conversación activa',
             timestamp: 'Ahora',
             unread: 0,
             online: true,
             isMatch: true,
-            type: 'individual'
+            type: 'individual' as const
           };
         });
 
+        console.log('✅ Conversaciones reales preparadas:', realConversations);
         setConversations(realConversations);
         
         // Seleccionar la primera conversación
         if (realConversations.length > 0) {
           setActiveConversation(realConversations[0].id);
-          loadRealMessages(realConversations[0].id);
+          if (typeof realConversations[0].id === 'string') {
+            loadRealMessages(realConversations[0].id);
+          }
         }
       }
     } catch (error) {
@@ -419,18 +345,18 @@ export default function MessagesPage() {
       console.log('✅ Mensajes encontrados:', data?.length || 0);
 
       if (data && data.length > 0) {
-        const realMessages = data.map((msg) => ({
+        const realMessages: Message[] = data.map((msg: any) => ({
           id: msg.id,
-          sender: msg.sender_id === user?.id ? 'me' : 'other',
+          sender: msg.sender_id === user?.id ? 'me' as const : 'other' as const,
           message: msg.message,
           timestamp: formatMadridTime(msg.created_at),
-          status: 'delivered'
+          status: 'delivered' as const
         }));
 
         setMessages(realMessages);
       } else {
-        // Si no hay mensajes, usar algunos de prueba
-        setMessages(mockMessages.slice(0, 3));
+        // Si no hay mensajes, dejar array vacío
+        setMessages([]);
       }
     } catch (error) {
       console.error('❌ Error general cargando mensajes:', error);
@@ -462,12 +388,12 @@ export default function MessagesPage() {
       console.log('✅ Mensaje enviado:', data.id);
 
       // Agregar mensaje a la UI inmediatamente
-      const newMsg = {
+      const newMsg: Message = {
         id: data.id,
-        sender: 'me',
+        sender: 'me' as const,
         message: messageText,
         timestamp: formatMadridTime(new Date()),
-        status: 'sent'
+        status: 'sent' as const
       };
 
       setMessages(prev => [...prev, newMsg]);
@@ -506,12 +432,12 @@ export default function MessagesPage() {
       
       // Agregar el mensaje a la lista si es de la conversación activa
       if (messageData.conversation_id === activeConversation) {
-        const newMsg = {
+        const newMsg: Message = {
           id: messageData.id,
-          sender: messageData.sender_id === effectiveUser.id ? 'me' : 'other',
+          sender: messageData.sender_id === effectiveUser.id ? 'me' as const : 'other' as const,
           message: messageData.message,
           timestamp: formatMadridTime(messageData.created_at),
-          status: 'delivered'
+          status: 'delivered' as const
         };
         
         setMessages(prevMessages => [...prevMessages, newMsg]);
@@ -597,6 +523,14 @@ export default function MessagesPage() {
     }
   }, [messages, scrollToBottom]);
 
+  // Cargar conversaciones reales al inicio
+  useEffect(() => {
+    if (effectiveUser?.id) {
+      console.log('🔄 Cargando conversaciones al inicio...');
+      loadRealConversations();
+    }
+  }, [effectiveUser?.id]);
+
   // Aplicar configuraciones de accesibilidad al DOM
   useEffect(() => {
     const root = document.documentElement;
@@ -677,9 +611,13 @@ export default function MessagesPage() {
     return filteredConvs;
   };
 
-  const selectConversation = (id: number, type: string) => {
+  const selectConversation = (id: string | number, type: string) => {
     setActiveConversation(id);
     setActiveConversationType(type);
+    // Cargar mensajes si es una conversación real
+    if (typeof id === 'string') {
+      loadRealMessages(id);
+    }
     // Scroll solo cuando seleccionamos una nueva conversación
     setTimeout(() => {
       scrollToBottom(true); // Forzar scroll al cambiar conversación
@@ -787,13 +725,14 @@ export default function MessagesPage() {
       }
 
     } else {
-      // Conversación mock - comportamiento anterior
-      const message = {
+      // Conversación mock - comportamiento anterior (NO DEBERÍA EJECUTARSE)
+      console.log('⚠️ Usando conversación mock - esto no debería pasar con conversaciones reales');
+      const message: Message = {
         id: messages.length + 1,
-        sender: "me",
+        sender: "me" as const,
         message: messageText,
         timestamp: "Ahora",
-        status: "sending"
+        status: "sending" as const
       };
       setMessages([...messages, message]);
       setNewMessage("");
