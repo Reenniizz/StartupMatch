@@ -1,11 +1,11 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
 import { useAuth } from "@/contexts/AuthProvider";
 import useSocket from "@/hooks/useSocket";
 import { useRouter } from "next/navigation";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "@/lib/supabase-client";
 import { 
   ArrowLeft, 
@@ -27,7 +27,14 @@ import {
   X,
   Globe,
   Lock,
-  Hash
+  Hash,
+  Settings,
+  Mic,
+  MicOff,
+  VolumeX,
+  Volume2,
+  Eye,
+  EyeOff
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -38,6 +45,14 @@ import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Switch } from "@/components/ui/switch";
+import AccessibilityPanel from "@/components/AccessibilityPanel";
+import MessagesArea from "@/components/MessagesArea";
+import MessageInput from "@/components/MessageInput";
+import TimezoneInfo from "@/components/TimezoneInfo";
+import { formatMadridTime, formatRelativeTime, formatMessageTime } from "@/lib/timezone";
 
 // Mock data for conversations
 const mockConversations = [
@@ -199,7 +214,7 @@ export default function MessagesPage() {
   const effectiveUser = user || testUser; // Use real user or fallback to test user
   const [conversations, setConversations] = useState(mockConversations);
   const [groupConversations, setGroupConversations] = useState(mockGroupConversations);
-  const [activeConversation, setActiveConversation] = useState<string | number>(1);
+  const [activeConversation, setActiveConversation] = useState<string | number | null>(1);
   const [activeConversationType, setActiveConversationType] = useState('individual');
   const [messages, setMessages] = useState(mockMessages);
   const [newMessage, setNewMessage] = useState("");
@@ -231,6 +246,30 @@ export default function MessagesPage() {
   // Estados para funcionalidades en tiempo real
   const [typingTimeout, setTypingTimeout] = useState<NodeJS.Timeout | null>(null);
 
+  // Estados de Accesibilidad y UI Mejorada
+  const [accessibilitySettings, setAccessibilitySettings] = useState({
+    highContrast: false,
+    largeText: false,
+    soundEnabled: true,
+    screenReaderMode: false,
+    reducedMotion: false,
+    keyboardNavigation: true
+  });
+
+  const [uiSettings, setUiSettings] = useState({
+    darkMode: false,
+    compactMode: false,
+    showTimestamps: true,
+    showAvatars: true,
+    autoScroll: false // Cambiado a false por defecto como WhatsApp/Telegram
+  });
+
+  // Referencias para accesibilidad
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messageInputRef = useRef<HTMLTextAreaElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const conversationListRef = useRef<HTMLDivElement>(null);
+
   const categories = [
     "Industria",
     "Tecnología", 
@@ -239,6 +278,72 @@ export default function MessagesPage() {
     "Comunidad",
     "Inversión"
   ];
+
+  // Funciones de Accesibilidad Mejoradas
+  const scrollToBottom = useCallback((force = false) => {
+    if (messagesEndRef.current) {
+      // Forzar scroll si se pide explícitamente o si autoScroll está habilitado
+      if (force || uiSettings.autoScroll) {
+        messagesEndRef.current.scrollIntoView({ 
+          behavior: accessibilitySettings.reducedMotion ? 'instant' : 'smooth' 
+        });
+      }
+    }
+  }, [uiSettings.autoScroll, accessibilitySettings.reducedMotion]);
+
+  const playNotificationSound = useCallback(() => {
+    if (accessibilitySettings.soundEnabled) {
+      // Crear sonido de notificación accesible
+      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const oscillator = audioContext.createOscillator();
+      const gainNode = audioContext.createGain();
+      
+      oscillator.connect(gainNode);
+      gainNode.connect(audioContext.destination);
+      
+      oscillator.frequency.setValueAtTime(800, audioContext.currentTime);
+      oscillator.frequency.setValueAtTime(600, audioContext.currentTime + 0.1);
+      
+      gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.2);
+      
+      oscillator.start(audioContext.currentTime);
+      oscillator.stop(audioContext.currentTime + 0.2);
+    }
+  }, [accessibilitySettings.soundEnabled]);
+
+  const announceToScreenReader = useCallback((message: string) => {
+    if (accessibilitySettings.screenReaderMode) {
+      const announcement = document.createElement('div');
+      announcement.setAttribute('aria-live', 'polite');
+      announcement.setAttribute('aria-atomic', 'true');
+      announcement.className = 'sr-only';
+      announcement.textContent = message;
+      document.body.appendChild(announcement);
+      
+      setTimeout(() => document.body.removeChild(announcement), 1000);
+    }
+  }, [accessibilitySettings.screenReaderMode]);
+
+  // Manejo de teclado mejorado
+  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (!accessibilitySettings.keyboardNavigation) return;
+
+    switch (e.key) {
+      case 'Enter':
+        if (e.shiftKey) return; // Permitir nueva línea con Shift+Enter
+        e.preventDefault();
+        // sendMessage se llamará desde el componente
+        break;
+      case 'Escape':
+        messageInputRef.current?.blur();
+        break;
+      case 'F6':
+        e.preventDefault();
+        searchInputRef.current?.focus();
+        break;
+    }
+  }, [accessibilitySettings.keyboardNavigation]);
 
   // 📝 FUNCIONES BÁSICAS PARA MENSAJERÍA REAL
   const loadRealConversations = async () => {
@@ -318,10 +423,7 @@ export default function MessagesPage() {
           id: msg.id,
           sender: msg.sender_id === user?.id ? 'me' : 'other',
           message: msg.message,
-          timestamp: new Date(msg.created_at).toLocaleTimeString('es-MX', {
-            hour: '2-digit',
-            minute: '2-digit'
-          }),
+          timestamp: formatMadridTime(msg.created_at),
           status: 'delivered'
         }));
 
@@ -364,10 +466,7 @@ export default function MessagesPage() {
         id: data.id,
         sender: 'me',
         message: messageText,
-        timestamp: new Date().toLocaleTimeString('es-MX', {
-          hour: '2-digit',
-          minute: '2-digit'
-        }),
+        timestamp: formatMadridTime(new Date()),
         status: 'sent'
       };
 
@@ -411,14 +510,17 @@ export default function MessagesPage() {
           id: messageData.id,
           sender: messageData.sender_id === effectiveUser.id ? 'me' : 'other',
           message: messageData.message,
-          timestamp: new Date(messageData.created_at).toLocaleTimeString('es-MX', {
-            hour: '2-digit',
-            minute: '2-digit'
-          }),
+          timestamp: formatMadridTime(messageData.created_at),
           status: 'delivered'
         };
         
         setMessages(prevMessages => [...prevMessages, newMsg]);
+        
+        // Mejoras de UX y Accesibilidad para mensajes nuevos
+        // Siempre forzar scroll para mensajes nuevos (tanto propios como de otros)
+        scrollToBottom(true); // Forzar scroll para todos los mensajes nuevos
+        playNotificationSound();
+        announceToScreenReader(`Nuevo mensaje de ${messageData.sender_id === effectiveUser.id ? 'ti' : 'contacto'}: ${messageData.message}`);
       }
       
       // Actualizar la última message en la lista de conversaciones
@@ -428,10 +530,7 @@ export default function MessagesPage() {
             ? { 
                 ...conv, 
                 lastMessage: messageData.message,
-                timestamp: new Date(messageData.created_at).toLocaleTimeString('es-MX', {
-                  hour: '2-digit',
-                  minute: '2-digit'
-                })
+                timestamp: formatMadridTime(messageData.created_at)
               }
             : conv
         )
@@ -449,6 +548,8 @@ export default function MessagesPage() {
             : msg
         )
       );
+      
+      announceToScreenReader('Mensaje enviado correctamente');
     };
 
     // Listener para errores de mensaje
@@ -462,6 +563,8 @@ export default function MessagesPage() {
             : msg
         )
       );
+      
+      announceToScreenReader('Error al enviar mensaje');
     };
 
     // Registrar listeners
@@ -475,7 +578,7 @@ export default function MessagesPage() {
       socket.off('message-sent', handleMessageSent);
       socket.off('message-error', handleMessageError);
     };
-  }, [socket, effectiveUser?.id, activeConversation]);
+  }, [socket, effectiveUser?.id, activeConversation, scrollToBottom, playNotificationSound, announceToScreenReader]);
 
   // Unirse a la conversación activa cuando cambie
   useEffect(() => {
@@ -484,6 +587,38 @@ export default function MessagesPage() {
       joinConversation(activeConversation, 'individual');
     }
   }, [socket, isConnected, activeConversation, joinConversation]);
+
+  // Auto-scroll cuando cambian los mensajes (forzar para todos los mensajes nuevos)
+  useEffect(() => {
+    if (messages.length > 0) {
+      const lastMessage = messages[messages.length - 1];
+      // Forzar scroll para todos los mensajes nuevos (tanto propios como recibidos)
+      scrollToBottom(true);
+    }
+  }, [messages, scrollToBottom]);
+
+  // Aplicar configuraciones de accesibilidad al DOM
+  useEffect(() => {
+    const root = document.documentElement;
+    
+    if (accessibilitySettings.highContrast) {
+      root.classList.add('high-contrast');
+    } else {
+      root.classList.remove('high-contrast');
+    }
+    
+    if (accessibilitySettings.largeText) {
+      root.classList.add('large-text');
+    } else {
+      root.classList.remove('large-text');
+    }
+    
+    if (accessibilitySettings.reducedMotion) {
+      root.classList.add('reduced-motion');
+    } else {
+      root.classList.remove('reduced-motion');
+    }
+  }, [accessibilitySettings]);
 
   const createGroup = () => {
     if (groupForm.name.trim() && groupForm.description.trim()) {
@@ -545,7 +680,73 @@ export default function MessagesPage() {
   const selectConversation = (id: number, type: string) => {
     setActiveConversation(id);
     setActiveConversationType(type);
-    // Aquí cargarías los mensajes específicos del grupo o conversación
+    // Scroll solo cuando seleccionamos una nueva conversación
+    setTimeout(() => {
+      scrollToBottom(true); // Forzar scroll al cambiar conversación
+      messageInputRef.current?.focus();
+    }, 100);
+  };
+
+  // Función para eliminar chat completo
+  const handleDeleteChat = async () => {
+    if (!activeConversation || !effectiveUser?.id) return;
+
+    // Confirmar la eliminación
+    const confirmed = window.confirm(
+      '¿Estás seguro de que quieres eliminar este chat? Esta acción no se puede deshacer y eliminará todos los mensajes.'
+    );
+
+    if (!confirmed) return;
+
+    try {
+      // Anunciar para accesibilidad
+      announceToScreenReader('Eliminando chat...');
+
+      // Solo proceder si es una conversación real (UUID)
+      if (typeof activeConversation === 'string') {
+        console.log('🗑️ Eliminando conversación:', activeConversation);
+
+        // Llamar a la API para eliminar la conversación
+        const response = await fetch(`/api/conversations?conversationId=${activeConversation}`, {
+          method: 'DELETE',
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Error al eliminar el chat');
+        }
+
+        console.log('✅ Chat eliminado exitosamente');
+        
+        // Actualizar la UI
+        setMessages([]); // Limpiar mensajes
+        setActiveConversation(null); // Cerrar el chat
+        
+        // Recargar la lista de conversaciones
+        await loadRealConversations();
+        
+        // Notificar éxito
+        announceToScreenReader('Chat eliminado exitosamente');
+        
+        // Mostrar mensaje de éxito
+        alert('Chat eliminado exitosamente');
+        
+      } else {
+        // Para conversaciones mock (desarrollo), solo limpiar la UI
+        console.log('🗑️ Eliminando conversación mock:', activeConversation);
+        setMessages([]);
+        setActiveConversation(null);
+        announceToScreenReader('Chat simulado eliminado');
+      }
+
+    } catch (error) {
+      console.error('❌ Error eliminando chat:', error);
+      announceToScreenReader('Error al eliminar el chat');
+      alert(`Error al eliminar el chat: ${error instanceof Error ? error.message : 'Error desconocido'}`);
+    }
   };
 
   const sendMessage = () => {
@@ -553,24 +754,16 @@ export default function MessagesPage() {
 
     const messageText = newMessage.trim();
 
+    // Anunciar envío para lectores de pantalla
+    announceToScreenReader(`Enviando mensaje: ${messageText.substring(0, 50)}${messageText.length > 50 ? '...' : ''}`);
+
     // Determinar si es conversación real (UUID) o mock (número)
     if (typeof activeConversation === 'string') {
       // Conversación real - usar Socket.IO para tiempo real
       console.log('📤 Enviando mensaje en tiempo real via Socket.IO');
       
-      // Agregar mensaje inmediatamente a la UI con status "sending"
-      const tempMessage = {
-        id: Date.now(), // ID temporal
-        sender: "me",
-        message: messageText,
-        timestamp: new Date().toLocaleTimeString('es-MX', {
-          hour: '2-digit',
-          minute: '2-digit'
-        }),
-        status: "sending"
-      };
-      
-      setMessages(prevMessages => [...prevMessages, tempMessage]);
+      // NO agregamos el mensaje a la UI aquí, esperamos la respuesta del servidor
+      // para evitar duplicados
       setNewMessage("");
 
       // Enviar via Socket.IO (se guardará en DB automáticamente)
@@ -578,9 +771,15 @@ export default function MessagesPage() {
         socketSendMessage({
           conversationId: activeConversation,
           message: messageText,
-          conversationType: 'individual',
-          tempId: tempMessage.id
+          conversationType: 'individual'
         });
+        
+        // Forzar scroll hacia abajo inmediatamente después de enviar
+        // para una mejor experiencia de usuario
+        setTimeout(() => {
+          scrollToBottom(true); // forzar scroll
+        }, 100);
+        
       } else {
         console.warn('⚠️ Socket no conectado, usando fallback directo a DB');
         // Fallback: enviar directamente a la base de datos
@@ -598,6 +797,11 @@ export default function MessagesPage() {
       };
       setMessages([...messages, message]);
       setNewMessage("");
+      
+      // Forzar scroll inmediatamente para mensajes propios
+      setTimeout(() => {
+        scrollToBottom(true);
+      }, 50);
       
       // Actualizar última mensaje en conversaciones mock
       setConversations(convs => 
@@ -961,149 +1165,185 @@ export default function MessagesPage() {
             </div>
           </div>
 
-          {/* Chat Area */}
-          <div className="lg:col-span-8 bg-white rounded-lg shadow-sm border h-full flex flex-col">
+          {/* Chat Area - Estilo WhatsApp/Telegram */}
+          <div className={`lg:col-span-8 h-full flex flex-col ${
+            accessibilitySettings.highContrast ? 'bg-black border-white' : 'bg-white border-gray-200'
+          } rounded-lg shadow-sm border overflow-hidden`}>
             {activeConv ? (
               <>
-                {/* Chat Header */}
-                <div className="p-4 border-b flex items-center justify-between">
-                  <div className="flex items-center space-x-3">
-                    <div className="relative">
-                      <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-semibold ${
-                        activeConv.type === 'group' 
-                          ? 'bg-gradient-to-br from-purple-500 to-pink-600' 
-                          : 'bg-gradient-to-br from-blue-500 to-purple-600'
-                      }`}>
-                        {activeConv.type === 'group' ? (
-                          <Users className="h-5 w-5" />
-                        ) : (
-                          (activeConv as any).avatar
-                        )}
-                      </div>
-                      {activeConv.type === 'individual' && (activeConv as any).online && (
-                        <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-green-500 border-2 border-white rounded-full"></div>
-                      )}
-                    </div>
-                    <div>
-                      <div className="flex items-center space-x-2">
-                        <h3 className="font-semibold text-gray-900">{activeConv.name}</h3>
-                        {activeConv.type === 'group' && (activeConv as any).isPrivate && (
-                          <Lock className="h-4 w-4 text-gray-500" />
-                        )}
-                      </div>
-                      <p className="text-sm text-gray-600">
-                        {activeConv.type === 'individual' 
-                          ? (activeConv as any).company 
-                          : `${(activeConv as any).memberCount} miembros • ${(activeConv as any).category}`
-                        }
-                      </p>
-                      {activeConv.type === 'individual' && (activeConv as any).online && (
-                        <p className="text-xs text-green-600">En línea</p>
-                      )}
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-center space-x-2">
-                    {activeConv.type === 'individual' && (
-                      <>
-                        <Button variant="ghost" size="sm">
-                          <Phone className="h-4 w-4" />
-                        </Button>
-                        <Button variant="ghost" size="sm">
-                          <Video className="h-4 w-4" />
-                        </Button>
-                      </>
-                    )}
-                    {activeConv.type === 'group' && (
-                      <Button variant="ghost" size="sm">
-                        <Users className="h-4 w-4" />
-                      </Button>
-                    )}
-                    <Button variant="ghost" size="sm">
-                      <MoreVertical className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-
-                {/* Messages */}
-                <div className="flex-1 overflow-y-auto p-4 space-y-4">
-                  {messages.map((message) => (
-                    <motion.div
-                      key={message.id}
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      className={`flex ${message.sender === "me" ? "justify-end" : "justify-start"}`}
-                    >
-                      <div className={`max-w-xs lg:max-w-md ${
-                        message.sender === "me" 
-                          ? "bg-blue-600 text-white" 
-                          : "bg-gray-100 text-gray-900"
-                      } rounded-lg px-4 py-2`}>
-                        <p className="text-sm">{message.message}</p>
-                        <div className={`flex items-center justify-between mt-1 text-xs ${
-                          message.sender === "me" ? "text-blue-100" : "text-gray-500"
+                {/* Chat Header - Fijo en la parte superior */}
+                <div className={`flex-shrink-0 p-4 border-b ${
+                  accessibilitySettings.highContrast ? 'border-white bg-gray-900' : 'border-gray-200 bg-white'
+                } shadow-sm z-10`}>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-3">
+                      <div className="relative">
+                        <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-semibold ${
+                          activeConv.type === 'group' 
+                            ? 'bg-gradient-to-br from-purple-500 to-pink-600' 
+                            : 'bg-gradient-to-br from-blue-500 to-purple-600'
                         }`}>
-                          <span>{message.timestamp}</span>
-                          {message.sender === "me" && (
-                            <div className="ml-2">
-                              {getStatusIcon(message.status)}
-                            </div>
+                          {activeConv.type === 'group' ? (
+                            <Users className="h-5 w-5" aria-label="Grupo" />
+                          ) : (
+                            <span aria-label={`Avatar de ${activeConv.name}`}>
+                              {(activeConv as any).avatar}
+                            </span>
                           )}
                         </div>
+                        {activeConv.type === 'individual' && (activeConv as any).online && (
+                          <div 
+                            className="absolute -bottom-1 -right-1 w-3 h-3 bg-green-500 border-2 border-white rounded-full"
+                            aria-label="En línea"
+                          ></div>
+                        )}
                       </div>
-                    </motion.div>
-                  ))}
-                  
-                  {/* Indicador de "escribiendo" */}
-                  {Object.keys(typingUsers).some(userId => 
-                    typingUsers[userId] && userId !== effectiveUser?.id
-                  ) && (
-                    <motion.div
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      className="flex justify-start"
-                    >
-                      <div className="bg-gray-100 text-gray-600 rounded-lg px-4 py-2 max-w-xs">
-                        <div className="flex items-center space-x-1">
-                          <span className="text-sm">Escribiendo</span>
-                          <div className="flex space-x-1">
-                            <div className="w-1 h-1 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
-                            <div className="w-1 h-1 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
-                            <div className="w-1 h-1 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
-                          </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center space-x-2">
+                          <h3 className={`font-semibold truncate ${
+                            accessibilitySettings.highContrast ? 'text-white' : 'text-gray-900'
+                          }`}>
+                            {activeConv.name}
+                          </h3>
+                          {activeConv.type === 'group' && (activeConv as any).isPrivate && (
+                            <Lock className="h-4 w-4 text-gray-500 flex-shrink-0" aria-label="Grupo privado" />
+                          )}
                         </div>
+                        <p className={`text-sm truncate ${
+                          accessibilitySettings.highContrast ? 'text-gray-300' : 'text-gray-600'
+                        }`}>
+                          {activeConv.type === 'individual' 
+                            ? (activeConv as any).company 
+                            : `${(activeConv as any).memberCount} miembros • ${(activeConv as any).category}`
+                          }
+                        </p>
+                        {/* Información de zona horaria */}
+                        <TimezoneInfo className="mt-1" />
+                        {activeConv.type === 'individual' && (activeConv as any).online && (
+                          <p className="text-xs text-green-600" aria-live="polite">En línea</p>
+                        )}
                       </div>
-                    </motion.div>
-                  )}
+                    </div>
+                    
+                    {/* Botones de acción en header */}
+                    <div className="flex items-center space-x-1">
+                      {activeConv.type === 'individual' && (
+                        <>
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button variant="ghost" size="sm" aria-label="Llamar">
+                                  <Phone className="h-4 w-4" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>Iniciar llamada</TooltipContent>
+                            </Tooltip>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button variant="ghost" size="sm" aria-label="Videollamada">
+                                  <Video className="h-4 w-4" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>Iniciar videollamada</TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        </>
+                      )}
+                      {activeConv.type === 'group' && (
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button variant="ghost" size="sm" aria-label="Ver miembros">
+                                <Users className="h-4 w-4" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>Ver miembros del grupo</TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      )}
+                      
+                      {/* Botón de eliminar chat */}
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              onClick={() => handleDeleteChat()}
+                              aria-label="Eliminar chat"
+                              className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>Eliminar chat completo</TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                      
+                      {/* Panel de Accesibilidad */}
+                      <AccessibilityPanel
+                        accessibilitySettings={accessibilitySettings}
+                        setAccessibilitySettings={setAccessibilitySettings}
+                        uiSettings={uiSettings}
+                        setUiSettings={setUiSettings}
+                      />
+                      
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button variant="ghost" size="sm" aria-label="Más opciones">
+                              <MoreVertical className="h-4 w-4" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>Más opciones</TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    </div>
+                  </div>
                 </div>
 
-                {/* Message Input */}
-                <div className="p-4 border-t">
-                  <div className="flex items-center space-x-2">
-                    <Button variant="ghost" size="sm">
-                      <Paperclip className="h-4 w-4" />
-                    </Button>
-                    <div className="flex-1 relative">
-                      <input
-                        type="text"
-                        value={newMessage}
-                        onChange={handleInputChange}
-                        onKeyPress={handleKeyPress}
-                        placeholder="Escribe un mensaje..."
-                        className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      />
-                      <Button 
-                        variant="ghost" 
-                        size="sm"
-                        className="absolute right-2 top-1/2 transform -translate-y-1/2"
-                      >
-                        <Smile className="h-4 w-4" />
-                      </Button>
-                    </div>
-                    <Button onClick={sendMessage} disabled={!newMessage.trim()}>
-                      <Send className="h-4 w-4" />
-                    </Button>
-                  </div>
+                {/* Messages - Área principal con scroll independiente */}
+                <div className="flex-1 overflow-hidden relative">
+                  <MessagesArea
+                    messages={messages}
+                    typingUsers={typingUsers}
+                    effectiveUserId={effectiveUser?.id || ''}
+                    accessibilitySettings={accessibilitySettings}
+                    uiSettings={uiSettings}
+                    messagesEndRef={messagesEndRef}
+                    className="absolute inset-0"
+                  />
+                </div>
+
+                {/* Message Input - Fijo en la parte inferior */}
+                <div className="flex-shrink-0 border-t bg-white">
+                  <MessageInput
+                    newMessage={newMessage}
+                    setNewMessage={setNewMessage}
+                    onSendMessage={sendMessage}
+                    onTyping={() => {
+                      if (socket && isConnected && typeof activeConversation === 'string') {
+                        startTyping(activeConversation, 'individual');
+                        
+                        if (typingTimeout) clearTimeout(typingTimeout);
+                        const timeout = setTimeout(() => {
+                          stopTyping(activeConversation, 'individual');
+                        }, 1000);
+                        setTypingTimeout(timeout);
+                      }
+                    }}
+                    onStopTyping={() => {
+                      if (socket && isConnected && typeof activeConversation === 'string') {
+                        stopTyping(activeConversation, 'individual');
+                        if (typingTimeout) {
+                          clearTimeout(typingTimeout);
+                          setTypingTimeout(null);
+                        }
+                      }
+                    }}
+                    isConnected={isConnected}
+                    accessibilitySettings={accessibilitySettings}
+                  />
                 </div>
               </>
             ) : (

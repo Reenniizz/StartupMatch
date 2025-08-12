@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServer } from '@/lib/supabase-server';
+import { formatRelativeTime } from '@/lib/timezone';
 
 export async function GET(request: NextRequest) {
   try {
@@ -30,7 +31,7 @@ export async function GET(request: NextRequest) {
       company: conv.other_user_data?.company || '',
       avatar: conv.other_user_data?.firstName ? conv.other_user_data.firstName.charAt(0).toUpperCase() : 'U',
       lastMessage: conv.last_message || 'Chat vacío - ¡Envía un mensaje!',
-      timestamp: conv.last_message_at ? new Date(conv.last_message_at).toLocaleDateString() : 'Nuevo',
+      timestamp: conv.last_message_at ? formatRelativeTime(conv.last_message_at) : 'Nuevo',
       unread: conv.unread_count || 0,
       online: false, // TODO: Implementar estado online
       isMatch: true, // Todas las conversaciones son matches

@@ -27,6 +27,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
+import { formatMadridDate, getMadridTimezoneInfo } from '@/lib/timezone';
 
 export default function SettingsPage() {
   const { user, signOut, loading } = useAuth();
@@ -48,7 +49,7 @@ export default function SettingsPage() {
     // Appearance
     darkMode: false,
     language: 'es',
-    timezone: 'America/Mexico_City',
+    timezone: 'Europe/Madrid',
     
     // Account
     twoFactorAuth: false,
@@ -330,16 +331,18 @@ export default function SettingsPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="font-medium">Zona horaria</h3>
-                  <p className="text-sm text-gray-600">Tu zona horaria local</p>
+                  <p className="text-sm text-gray-600">Configurado para Madrid, España</p>
                 </div>
                 <select
                   value={settings.timezone}
                   onChange={(e) => updateSetting('timezone', e.target.value)}
                   className="px-3 py-2 border rounded-lg"
                 >
+                  <option value="Europe/Madrid">Madrid, España (CET/CEST)</option>
+                  <option value="Europe/London">Londres</option>
+                  <option value="Europe/Paris">París</option>
                   <option value="America/Mexico_City">Ciudad de México</option>
                   <option value="America/New_York">Nueva York</option>
-                  <option value="Europe/London">Londres</option>
                   <option value="Asia/Tokyo">Tokio</option>
                 </select>
               </div>
@@ -411,7 +414,7 @@ export default function SettingsPage() {
                 <div>
                   <label className="text-sm font-medium text-gray-600">Usuario desde</label>
                   <p className="text-gray-900">
-                    {user?.created_at ? new Date(user.created_at).toLocaleDateString('es-ES') : 'N/A'}
+                    {user?.created_at ? formatMadridDate(user.created_at) : 'N/A'}
                   </p>
                 </div>
               </div>

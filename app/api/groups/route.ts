@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServer } from '@/lib/supabase-server';
+import { formatRelativeTime } from '@/lib/timezone';
 
 export async function GET(request: NextRequest) {
   try {
@@ -30,7 +31,7 @@ export async function GET(request: NextRequest) {
       description: group.group_data?.description || '',
       avatar: group.group_data?.name ? group.group_data.name.charAt(0).toUpperCase() : 'G',
       lastMessage: 'Grupo vacío - ¡Sé el primero en escribir!', // TODO: Implementar último mensaje del grupo
-      timestamp: group.last_activity ? new Date(group.last_activity).toLocaleDateString() : 'Nuevo',
+      timestamp: group.last_activity ? formatRelativeTime(group.last_activity) : 'Nuevo',
       unread: 0, // TODO: Implementar mensajes no leídos del grupo
       memberCount: group.member_count || 0,
       isPrivate: group.group_data?.isPrivate || false,

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServer } from '@/lib/supabase-server';
+import { formatMadridTime } from '@/lib/timezone';
 
 export async function GET(request: NextRequest) {
   try {
@@ -63,7 +64,7 @@ export async function GET(request: NextRequest) {
       id: msg.id,
       sender: msg.sender_id === userId ? 'me' : 'other',
       message: msg.message,
-      timestamp: new Date(msg.created_at).toLocaleTimeString(),
+      timestamp: formatMadridTime(msg.created_at),
       status: msg.sender_id === userId ? 'sent' : 'delivered' // TODO: Implementar estados reales
     })) || [];
 
@@ -142,7 +143,7 @@ export async function POST(request: NextRequest) {
         id: newMessage.id,
         sender: 'me',
         message: newMessage.message,
-        timestamp: new Date(newMessage.created_at).toLocaleTimeString(),
+        timestamp: formatMadridTime(newMessage.created_at),
         status: 'sent'
       }
     });

@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { supabase } from '@/lib/supabase-client';
 import type { RealtimeChannel } from '@supabase/supabase-js';
+import { formatMadridTime } from '@/lib/timezone';
 
 interface Message {
   id: number;
@@ -41,7 +42,7 @@ export const useRealtimeMessages = (
           id: newMessageData.id,
           sender: newMessageData.sender_id === currentUserId ? 'me' : 'other',
           message: newMessageData.message,
-          timestamp: new Date(newMessageData.created_at).toLocaleTimeString(),
+          timestamp: formatMadridTime(newMessageData.created_at),
           status: 'delivered'
         };
 
