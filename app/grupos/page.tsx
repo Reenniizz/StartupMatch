@@ -31,6 +31,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import CreateGroupModal from "@/components/CreateGroupModal";
 
 // Tipos de datos para grupos
 interface GroupMember {
@@ -62,139 +63,8 @@ interface Group {
   };
 }
 
-// Mock data para grupos
-const mockGroups: Group[] = [
-  {
-    id: '1',
-    name: 'Fundadores FinTech México',
-    description: 'Comunidad de fundadores y emprendedores en el sector financiero. Compartimos experiencias, oportunidades y recursos para hacer crecer nuestras startups.',
-    category: 'Industria',
-    memberCount: 127,
-    messagesCount: 2341,
-    isPrivate: false,
-    coverImage: 'fintech',
-    lastActivity: '2 min',
-    tags: ['FinTech', 'Funding', 'Banking', 'Crypto'],
-    recentMembers: [
-      { id: '1', name: 'María G.', role: 'CEO', avatar: 'MG', isOnline: true },
-      { id: '2', name: 'Carlos R.', role: 'CTO', avatar: 'CR', isOnline: false },
-      { id: '3', name: 'Ana M.', role: 'CFO', avatar: 'AM', isOnline: true }
-    ],
-    isMember: true,
-    isVerified: true,
-    location: 'CDMX',
-    nextEvent: {
-      title: 'Demo Day FinTech',
-      date: 'Vie 15 Ago'
-    }
-  },
-  {
-    id: '2',
-    name: 'AI Developers Network',
-    description: 'Red de desarrolladores especializados en inteligencia artificial y machine learning. Discutimos nuevas tecnologías, compartimos proyectos y colaboramos.',
-    category: 'Tecnología',
-    memberCount: 234,
-    messagesCount: 4567,
-    isPrivate: false,
-    coverImage: 'ai',
-    lastActivity: '15 min',
-    tags: ['AI', 'ML', 'Python', 'TensorFlow'],
-    recentMembers: [
-      { id: '4', name: 'Luis P.', role: 'ML Engineer', avatar: 'LP', isOnline: true },
-      { id: '5', name: 'Sofia V.', role: 'Data Scientist', avatar: 'SV', isOnline: true },
-      { id: '6', name: 'Diego M.', role: 'AI Researcher', avatar: 'DM', isOnline: false }
-    ],
-    isMember: false,
-    isVerified: true
-  },
-  {
-    id: '3',
-    name: 'Startups Pre-Seed',
-    description: 'Espacio para emprendedores en etapa temprana. Aquí compartimos recursos sobre validación de ideas, primeros clientes y preparación para funding.',
-    category: 'Stage',
-    memberCount: 89,
-    messagesCount: 1234,
-    isPrivate: false,
-    coverImage: 'preseed',
-    lastActivity: '1 hr',
-    tags: ['Pre-Seed', 'MVP', 'Validation', 'Customer Development'],
-    recentMembers: [
-      { id: '7', name: 'Roberto S.', role: 'Founder', avatar: 'RS', isOnline: false },
-      { id: '8', name: 'Carmen L.', role: 'Co-founder', avatar: 'CL', isOnline: true }
-    ],
-    isMember: true,
-    isVerified: false
-  },
-  {
-    id: '4',
-    name: 'Women in Tech MX',
-    description: 'Comunidad de mujeres líderes en tecnología y emprendimiento. Creamos un espacio seguro para el networking, mentoring y crecimiento profesional.',
-    category: 'Comunidad',
-    memberCount: 156,
-    messagesCount: 3421,
-    isPrivate: true,
-    coverImage: 'women',
-    lastActivity: '30 min',
-    tags: ['Women', 'Leadership', 'Tech', 'Mentoring'],
-    recentMembers: [
-      { id: '9', name: 'Patricia H.', role: 'CTO', avatar: 'PH', isOnline: true },
-      { id: '10', name: 'Isabella R.', role: 'Product Manager', avatar: 'IR', isOnline: true }
-    ],
-    isMember: false,
-    isVerified: true,
-    nextEvent: {
-      title: 'Networking Breakfast',
-      date: 'Mié 20 Ago'
-    }
-  },
-  {
-    id: '5',
-    name: 'Guadalajara Entrepreneurs',
-    description: 'Hub de emprendedores en Guadalajara. Organizamos meetups, compartimos oportunidades locales y conectamos el ecosistema tapatío.',
-    category: 'Ubicación',
-    memberCount: 203,
-    messagesCount: 5678,
-    isPrivate: false,
-    coverImage: 'gdl',
-    lastActivity: '5 min',
-    tags: ['Guadalajara', 'Networking', 'Meetups', 'Local'],
-    recentMembers: [
-      { id: '11', name: 'Fernando G.', role: 'Startup Advisor', avatar: 'FG', isOnline: true },
-      { id: '12', name: 'Valeria C.', role: 'Investor', avatar: 'VC', isOnline: false }
-    ],
-    isMember: false,
-    isVerified: true,
-    location: 'GDL'
-  },
-  {
-    id: '6',
-    name: 'Angel Investors Circle',
-    description: 'Red privada de angel investors. Compartimos deal flow, co-invertimos y brindamos mentoría a startups en etapas tempranas.',
-    category: 'Inversión',
-    memberCount: 42,
-    messagesCount: 892,
-    isPrivate: true,
-    coverImage: 'investors',
-    lastActivity: '3 hr',
-    tags: ['Angel Investment', 'Deal Flow', 'Due Diligence', 'Mentoring'],
-    recentMembers: [
-      { id: '13', name: 'Miguel A.', role: 'Angel Investor', avatar: 'MA', isOnline: false },
-      { id: '14', name: 'Claudia F.', role: 'VC Partner', avatar: 'CF', isOnline: true }
-    ],
-    isMember: false,
-    isVerified: true
-  }
-];
-
-const categories = [
-  { name: 'Todos', count: mockGroups.length, icon: Globe },
-  { name: 'Industria', count: 4, icon: Briefcase },
-  { name: 'Tecnología', count: 6, icon: Code },
-  { name: 'Stage', count: 3, icon: TrendingUp },
-  { name: 'Ubicación', count: 5, icon: MapPin },
-  { name: 'Comunidad', count: 2, icon: Users },
-  { name: 'Inversión', count: 2, icon: DollarSign }
-];
+// Lista vacía de grupos - sin datos mock
+const mockGroups: Group[] = [];
 
 export default function GruposPage() {
   const { user, loading } = useAuth();
@@ -203,6 +73,28 @@ export default function GruposPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [showFilters, setShowFilters] = useState(false);
   const [groups, setGroups] = useState(mockGroups);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [isLoadingGroups, setIsLoadingGroups] = useState(false);
+
+  // Calcular conteos dinámicos de categorías
+  const getDynamicCategories = () => {
+    const categoryCounts = groups.reduce((acc, group) => {
+      acc[group.category] = (acc[group.category] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+
+    return [
+      { name: 'Todos', count: groups.length, icon: Globe },
+      { name: 'Industria', count: categoryCounts['Industria'] || 0, icon: Briefcase },
+      { name: 'Tecnología', count: categoryCounts['Tecnología'] || 0, icon: Code },
+      { name: 'Stage', count: categoryCounts['Stage'] || 0, icon: TrendingUp },
+      { name: 'Ubicación', count: categoryCounts['Ubicación'] || 0, icon: MapPin },
+      { name: 'Comunidad', count: categoryCounts['Comunidad'] || 0, icon: Users },
+      { name: 'Inversión', count: categoryCounts['Inversión'] || 0, icon: DollarSign }
+    ];
+  };
+
+  const categories = getDynamicCategories();
 
   // Redirect if not authenticated
   useEffect(() => {
@@ -210,6 +102,67 @@ export default function GruposPage() {
       router.push("/login");
     }
   }, [user, loading, router]);
+
+  // Función para cargar grupos desde la API
+  const loadGroups = async () => {
+    if (!user) return;
+    
+    setIsLoadingGroups(true);
+    try {
+      // Usar la nueva API de descubrimiento que muestra grupos públicos + grupos del usuario
+      const response = await fetch('/api/groups/discover');
+      if (response.ok) {
+        const groupsData = await response.json();
+        // Los datos ya vienen en el formato correcto desde la nueva API
+        setGroups(groupsData);
+      } else {
+        console.error('Error loading groups:', response.statusText);
+      }
+    } catch (error) {
+      console.error('Error loading groups:', error);
+    } finally {
+      setIsLoadingGroups(false);
+    }
+  };
+
+  // Cargar grupos al montar el componente
+  useEffect(() => {
+    if (user && !loading) {
+      loadGroups();
+    }
+  }, [user, loading]);
+
+  // Función para manejar cuando se crea un nuevo grupo
+  const handleGroupCreated = () => {
+    loadGroups(); // Recargar la lista de grupos
+  };
+
+  // Función para unirse a un grupo
+  const joinGroup = async (groupId: string) => {
+    if (!user) return;
+
+    try {
+      const response = await fetch('/api/groups/join', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ groupId }),
+      });
+
+      if (response.ok) {
+        // Recargar grupos para mostrar el estado actualizado
+        loadGroups();
+      } else {
+        const errorData = await response.json();
+        console.error('Error joining group:', errorData.error);
+        // TODO: Mostrar notificación de error al usuario
+      }
+    } catch (error) {
+      console.error('Error joining group:', error);
+      // TODO: Mostrar notificación de error al usuario
+    }
+  };
 
   const filteredGroups = groups.filter(group => {
     const matchesCategory = selectedCategory === 'Todos' || group.category === selectedCategory;
@@ -229,16 +182,6 @@ export default function GruposPage() {
       investors: 'from-slate-600 to-gray-700'
     };
     return gradients[coverImage as keyof typeof gradients] || 'from-slate-500 to-gray-600';
-  };
-
-  const joinGroup = (groupId: string) => {
-    setGroups(prev => 
-      prev.map(group => 
-        group.id === groupId 
-          ? { ...group, isMember: true, memberCount: group.memberCount + 1 }
-          : group
-      )
-    );
   };
 
   if (loading) {
@@ -273,7 +216,10 @@ export default function GruposPage() {
             </div>
 
             <div className="flex items-center space-x-3">
-              <Button className="bg-slate-900 hover:bg-slate-800">
+              <Button 
+                onClick={() => setShowCreateModal(true)}
+                className="bg-slate-900 hover:bg-slate-800"
+              >
                 <Plus className="h-4 w-4 mr-2" />
                 Crear Grupo
               </Button>
@@ -330,7 +276,7 @@ export default function GruposPage() {
                           <span>{category.name}</span>
                         </div>
                         <Badge variant="outline" className="border-slate-300 text-slate-600">
-                          {category.name === 'Todos' ? mockGroups.length : category.count}
+                          {category.count}
                         </Badge>
                       </button>
                     );
@@ -487,11 +433,11 @@ export default function GruposPage() {
             {filteredGroups.length === 0 && (
               <div className="text-center py-16">
                 <Users className="h-16 w-16 mx-auto text-slate-300 mb-4" />
-                <h3 className="text-xl font-semibold text-slate-600 mb-2">No se encontraron grupos</h3>
+                <h3 className="text-xl font-semibold text-slate-600 mb-2">Todavía no hay grupos</h3>
                 <p className="text-slate-500 mb-6">
-                  Intenta cambiar los filtros o crear un nuevo grupo
+                  Si quieres crear uno, pulsa aquí
                 </p>
-                <Button>
+                <Button onClick={() => setShowCreateModal(true)}>
                   <Plus className="h-4 w-4 mr-2" />
                   Crear Nuevo Grupo
                 </Button>
@@ -500,6 +446,13 @@ export default function GruposPage() {
           </div>
         </div>
       </div>
+
+      {/* Modal para crear grupo */}
+      <CreateGroupModal 
+        isOpen={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+        onGroupCreated={handleGroupCreated}
+      />
     </div>
   );
 }
