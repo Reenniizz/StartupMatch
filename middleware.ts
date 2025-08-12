@@ -68,11 +68,14 @@ export async function middleware(request: NextRequest) {
   const protectedRoutes = ['/dashboard', '/profile', '/settings', '/matches', '/messages', '/projects'];
   const isProtectedRoute = protectedRoutes.some(route => request.nextUrl.pathname.startsWith(route));
   
+  // Temporarily disabled for development
+  /*
   if (isProtectedRoute && !session) {
     const redirectUrl = new URL('/login', request.url);
     redirectUrl.searchParams.set('redirect', request.nextUrl.pathname);
     return NextResponse.redirect(redirectUrl);
   }
+  */
   
   return response;
 }
