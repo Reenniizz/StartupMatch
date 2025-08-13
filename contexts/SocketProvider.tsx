@@ -1,27 +1,40 @@
-// hooks/useSocket.ts
 "use client";
 
-import { useEffect, useState, useCallback } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { useAuth } from '@/contexts/AuthProvider';
 
-interface SocketHook {
+interface SocketContextType {
   socket: Socket | null;
   isConnected: boolean;
   sendMessage: (data: {
-    conversationId: string; // UUID
+    conversationId: string;
     message: string;
     conversationType: 'individual' | 'group';
     tempId?: number;
   }) => void;
-  joinConversation: (conversationId: string, conversationType: 'individual' | 'group') => void; // UUID
-  startTyping: (conversationId: string, conversationType: 'individual' | 'group') => void; // UUID
-  stopTyping: (conversationId: string, conversationType: 'individual' | 'group') => void; // UUID
+  joinConversation: (conversationId: string, conversationType: 'individual' | 'group') => void;
+  startTyping: (conversationId: string, conversationType: 'individual' | 'group') => void;
+  stopTyping: (conversationId: string, conversationType: 'individual' | 'group') => void;
   onlineUsers: string[];
   typingUsers: { [key: string]: boolean };
 }
 
-const useSocket = (): SocketHook => {
+const SocketContext = createContext<SocketContextType | undefined>(undefined);
+
+export const useSocket = () => {
+  const context = useContext(SocketContext);
+  if (!context) {
+    throw new Error('useSocket debe ser usado dentro de un SocketProvider');
+  }
+  return context;
+};
+
+interface SocketProviderProps {
+  children: React.ReactNode;
+}
+
+export const SocketProvider: React.FC<SocketProviderProps> = ({ children }) => {
   const { user } = useAuth();
   const [socket, setSocket] = useState<Socket | null>(null);
   const [isConnected, setIsConnected] = useState(false);
@@ -30,7 +43,21 @@ const useSocket = (): SocketHook => {
 
   useEffect(() => {
     if (!user?.id) {
-      console.log('🔄 Usuario no disponible para Socket.IO:', user);
+      // Si no hay usuario, desconectar socket existente
+      if (socket) {
+        console.log('🔌 Desconectando socket - usuario no disponible');
+        socket.disconnect();
+        setSocket(null);
+        setIsConnected(false);
+        setOnlineUsers([]);
+        setTypingUsers({});
+      }
+      return;
+    }
+
+    // Si ya tenemos un socket y el usuario es el mismo, no recrear
+    if (socket && socket.connected) {
+      console.log('🔄 Socket ya conectado para usuario:', user.id);
       return;
     }
 
@@ -38,15 +65,20 @@ const useSocket = (): SocketHook => {
       console.log('🚀 Iniciando Socket.IO para usuario:', user.id);
 
       try {
-        // Conectar cliente al servidor Socket.IO personalizado con configuración mejorada
+        // Desconectar socket anterior si existe
+        if (socket) {
+          socket.disconnect();
+        }
+
+        // Conectar cliente al servidor Socket.IO personalizado
         const socketInstance = io('http://localhost:3000', {
           path: '/socket.io',
-          transports: ['websocket', 'polling'], // Priorizar websockets
+          transports: ['websocket', 'polling'],
           timeout: 20000,
           reconnection: true,
           reconnectionDelay: 1000,
           reconnectionAttempts: 5,
-          forceNew: true, // Forzar nueva conexión
+          forceNew: true,
         });
 
         console.log('🔗 Cliente Socket.IO inicializado');
@@ -71,6 +103,8 @@ const useSocket = (): SocketHook => {
         socketInstance.on('reconnect', (attempt) => {
           console.log('🔄 Socket reconectado después de', attempt, 'intentos');
           setIsConnected(true);
+          // Re-join user room after reconnection
+          socketInstance.emit('join-user', user.id);
         });
 
         socketInstance.on('connect_error', (error) => {
@@ -128,19 +162,22 @@ const useSocket = (): SocketHook => {
             }, 3000);
           }
         });
-
-        // Cleanup
-        return () => {
-          socketInstance.disconnect();
-        };
         
       } catch (error) {
         console.error('💥 Error inicializando Socket.IO:', error);
       }
-    }
+    };
 
-    initSocket()
-  }, [user?.id]);
+    initSocket();
+
+    // Cleanup cuando se desmonta el provider (navegación completa o cierre de app)
+    return () => {
+      if (socket) {
+        console.log('🧹 Limpiando Socket.IO...');
+        socket.disconnect();
+      }
+    };
+  }, [user?.id]); // Solo depende del user.id, no del socket
 
   const sendMessage = useCallback((data: {
     conversationId: string;
@@ -148,8 +185,12 @@ const useSocket = (): SocketHook => {
     conversationType: 'individual' | 'group';
     tempId?: number;
   }) => {
-    if (!socket || !user?.id) {
-      console.error('❌ No se puede enviar mensaje - Socket o usuario no disponible:', { socket: !!socket, userId: user?.id });
+    if (!socket || !user?.id || !isConnected) {
+      console.error('❌ No se puede enviar mensaje - Socket, usuario o conexión no disponible:', { 
+        socket: !!socket, 
+        userId: user?.id, 
+        isConnected 
+      });
       return;
     }
 
@@ -162,35 +203,39 @@ const useSocket = (): SocketHook => {
 
     console.log('📤 Enviando mensaje via Socket.IO:', messageData);
     socket.emit('send-message', messageData);
-  }, [socket, user?.id]);
+  }, [socket, user?.id, isConnected]);
 
   const joinConversation = useCallback((conversationId: string, conversationType: 'individual' | 'group') => {
-    if (!socket) return;
+    if (!socket || !isConnected) {
+      console.warn('⚠️ No se puede unir a conversación - Socket no conectado');
+      return;
+    }
 
+    console.log('🏠 Uniéndose a conversación:', conversationId, 'Tipo:', conversationType);
     socket.emit('join-conversation', conversationId, conversationType);
-  }, [socket]);
+  }, [socket, isConnected]);
 
   const startTyping = useCallback((conversationId: string, conversationType: 'individual' | 'group') => {
-    if (!socket || !user?.id) return;
+    if (!socket || !user?.id || !isConnected) return;
 
     socket.emit('typing-start', {
       conversationId,
       conversationType,
       userId: user.id
     });
-  }, [socket, user?.id]);
+  }, [socket, user?.id, isConnected]);
 
   const stopTyping = useCallback((conversationId: string, conversationType: 'individual' | 'group') => {
-    if (!socket || !user?.id) return;
+    if (!socket || !user?.id || !isConnected) return;
 
     socket.emit('typing-stop', {
       conversationId,
       conversationType,
       userId: user.id
     });
-  }, [socket, user?.id]);
+  }, [socket, user?.id, isConnected]);
 
-  return {
+  const value: SocketContextType = {
     socket,
     isConnected,
     sendMessage,
@@ -200,6 +245,10 @@ const useSocket = (): SocketHook => {
     onlineUsers,
     typingUsers,
   };
-};
 
-export default useSocket;
+  return (
+    <SocketContext.Provider value={value}>
+      {children}
+    </SocketContext.Provider>
+  );
+};

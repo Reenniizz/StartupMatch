@@ -23,30 +23,66 @@ app.prepare().then(() => {
     }
   });
 
-  // Socket.IO server
+  // Socket.IO server con configuración mejorada
   const io = new SocketIOServer(httpServer, {
     path: '/socket.io',
     cors: {
-      origin: "*",
-      methods: ["GET", "POST"]
-    }
+      origin: ["http://localhost:3000", "http://127.0.0.1:3000"],
+      methods: ["GET", "POST"],
+      credentials: true
+    },
+    transports: ['websocket', 'polling'],
+    pingTimeout: 60000,
+    pingInterval: 25000
   });
+
+  console.log('🚀 Socket.IO server iniciado en puerto', port);
 
   // Store user sessions
   const userSessions = new Map(); // userId -> socketId
 
   io.on('connection', (socket) => {
-    console.log(`🔌 Usuario conectado: ${socket.id}`);
+    console.log(`🔌 Nueva conexión Socket.IO: ${socket.id}`);
+    
+    // Estadísticas de conexiones
+    const connectedUsers = userSessions.size;
+    console.log(`📊 Usuarios conectados: ${connectedUsers + 1}`);
 
     // Usuario se une cuando envía su ID
     socket.on('join-user', (userId) => {
+      console.log(`👤 Usuario intentando unirse: ${userId}`);
+      
+      if (!userId) {
+        console.error('❌ UserId no proporcionado');
+        socket.emit('join-error', { message: 'UserId requerido' });
+        return;
+      }
+
+      // Si el usuario ya tiene otra sesión, desconectar la anterior
+      if (userSessions.has(userId)) {
+        const oldSocketId = userSessions.get(userId);
+        console.log(`🔄 Usuario ${userId} ya conectado, desconectando sesión anterior: ${oldSocketId}`);
+        const oldSocket = io.sockets.sockets.get(oldSocketId);
+        if (oldSocket) {
+          oldSocket.disconnect(true);
+        }
+      }
+
       socket.userId = userId;
       userSessions.set(userId, socket.id);
       socket.join(`user:${userId}`);
-      console.log(`👤 Usuario ${userId} se unió con socket ${socket.id}`);
       
-      // Emitir que el usuario está online
+      console.log(`✅ Usuario ${userId} conectado exitosamente con socket ${socket.id}`);
+      
+      // Confirmar al cliente que se unió correctamente
+      socket.emit('join-success', { userId, socketId: socket.id });
+      
+      // Emitir que el usuario está online a otros usuarios
       socket.broadcast.emit('user-online', userId);
+      
+      // Enviar lista de usuarios online al nuevo usuario
+      const onlineUserIds = Array.from(userSessions.keys()).filter(id => id !== userId);
+      socket.emit('users-online', onlineUserIds);
     });
 
     // Usuario se une a una conversación específica
@@ -99,13 +135,24 @@ app.prepare().then(() => {
       socket.to(`conversation:${conversationId}`).emit('user-typing', { userId, isTyping: false });
     });
 
-    socket.on('disconnect', () => {
-      console.log(`🔌 Usuario desconectado: ${socket.id}`);
+    socket.on('disconnect', (reason) => {
+      console.log(`🔌 Socket desconectado: ${socket.id}, razón: ${reason}`);
+      
       if (socket.userId) {
+        console.log(`👋 Usuario ${socket.userId} se desconectó`);
         userSessions.delete(socket.userId);
+        
         // Emitir que el usuario está offline
         socket.broadcast.emit('user-offline', socket.userId);
+        
+        // Estadísticas actualizadas
+        console.log(`📊 Usuarios conectados restantes: ${userSessions.size}`);
       }
+    });
+
+    // Manejo de errores de socket
+    socket.on('error', (error) => {
+      console.error(`❌ Error en socket ${socket.id}:`, error);
     });
   });
 
