@@ -242,7 +242,7 @@ export const usePushNotifications = (): PushNotificationHook => {
 
       const subscription = await registrationRef.current.pushManager.subscribe({
         userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(vapidKey)
+        applicationServerKey: urlBase64ToUint8Array(vapidKey) as BufferSource
       });
 
       subscriptionRef.current = subscription;
@@ -530,12 +530,7 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array {
     outputArray[i] = rawData.charCodeAt(i);
   }
   
-  // Crear un nuevo ArrayBuffer y copiar los datos
-  const buffer = new ArrayBuffer(outputArray.length);
-  const view = new Uint8Array(buffer);
-  view.set(outputArray);
-  
-  return view;
+  return outputArray;
 }
 
 // Convertir ArrayBuffer a base64
