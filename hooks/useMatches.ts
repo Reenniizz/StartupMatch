@@ -231,6 +231,7 @@ interface ConnectionRequest {
 interface UseConnectionsResult {
   connections: Connection[];
   connectionRequests: ConnectionRequest[];
+  sentRequests: ConnectionRequest[]; // Añadir solicitudes enviadas
   loading: boolean;
   error: string | null;
   stats: {
@@ -241,6 +242,7 @@ interface UseConnectionsResult {
   };
   fetchConnections: (status?: string, search?: string) => Promise<void>;
   fetchConnectionRequests: (status?: string) => Promise<void>;
+  fetchSentRequests: (status?: string) => Promise<void>; // Añadir función para solicitudes enviadas
   respondToConnection: (
     connectionId: string, 
     response: 'accepted' | 'rejected'
@@ -251,6 +253,7 @@ interface UseConnectionsResult {
 export function useConnections(): UseConnectionsResult {
   const [connections, setConnections] = useState<Connection[]>([]);
   const [connectionRequests, setConnectionRequests] = useState<ConnectionRequest[]>([]);
+  const [sentRequests, setSentRequests] = useState<ConnectionRequest[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [stats, setStats] = useState({
@@ -290,7 +293,20 @@ export function useConnections(): UseConnectionsResult {
 
   const fetchConnectionRequests = useCallback(async (status: string = 'pending') => {
     try {
-      const response = await fetch(`/api/connections/request?status=${status}`);
+      // Obtener el token de sesión actual
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session?.access_token) {
+        console.error('No hay sesión activa para obtener connection requests');
+        return;
+      }
+
+      const response = await fetch(`/api/connections/requests?status=${status}`, {
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json'
+        }
+      });
       const data = await response.json();
 
       if (response.ok) {
@@ -308,12 +324,24 @@ export function useConnections(): UseConnectionsResult {
     response: 'accepted' | 'rejected'
   ) => {
     try {
-      const apiResponse = await fetch(`/api/connections/${connectionId}`, {
+      // Obtener el token de sesión actual
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session?.access_token) {
+        console.error('No hay sesión activa para responder connection request');
+        return { success: false, error: 'No hay sesión activa' };
+      }
+
+      const apiResponse = await fetch(`/api/connections/respond`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`
         },
-        body: JSON.stringify({ response }),
+        body: JSON.stringify({ 
+          connectionRequestId: connectionId,
+          response: response 
+        }),
       });
 
       const data = await apiResponse.json();
@@ -338,21 +366,52 @@ export function useConnections(): UseConnectionsResult {
     }
   }, [fetchConnections]);
 
+  const fetchSentRequests = useCallback(async (status: string = 'pending') => {
+    try {
+      // Obtener el token de sesión actual
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session?.access_token) {
+        console.error('No hay sesión activa para obtener sent requests');
+        return;
+      }
+
+      const response = await fetch(`/api/connections/sent?status=${status}`, {
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      const data = await response.json();
+
+      if (response.ok) {
+        setSentRequests(data.requests || []);
+      } else {
+        console.error('Error fetching sent requests:', data.error);
+      }
+    } catch (err) {
+      console.error('Error fetching sent requests:', err);
+    }
+  }, []);
+
   const refreshAll = useCallback(async () => {
     await Promise.all([
       fetchConnections(),
-      fetchConnectionRequests()
+      fetchConnectionRequests(),
+      fetchSentRequests()
     ]);
-  }, [fetchConnections, fetchConnectionRequests]);
+  }, [fetchConnections, fetchConnectionRequests, fetchSentRequests]);
 
   return {
     connections,
     connectionRequests,
+    sentRequests,
     loading,
     error,
     stats,
     fetchConnections,
     fetchConnectionRequests,
+    fetchSentRequests,
     respondToConnection,
     refreshAll,
   };

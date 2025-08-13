@@ -38,13 +38,14 @@ const useSocket = (): SocketHook => {
       console.log('🚀 Iniciando Socket.IO para usuario:', user.id);
 
       try {
-        // Inicializar servidor Socket.IO
-        await fetch('/api/socketio')
-        
-        // Conectar cliente
+        // Conectar cliente al servidor Socket.IO personalizado con configuración mejorada
         const socketInstance = io({
-          path: '/api/socketio',
-          addTrailingSlash: false,
+          path: '/socket.io',
+          transports: ['websocket', 'polling'], // Priorizar websockets
+          timeout: 20000,
+          reconnection: true,
+          reconnectionDelay: 1000,
+          reconnectionAttempts: 5,
         });
 
         setSocket(socketInstance);

@@ -41,6 +41,12 @@ export default function RegisterPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
 
+  // All hooks must be called unconditionally
+  useEffect(() => {
+    // Scroll to top on component mount
+    window.scrollTo(0, 0);
+  }, []);
+
   // Redirect if already logged in
   useEffect(() => {
     if (user && !loading) {
@@ -104,10 +110,6 @@ export default function RegisterPage() {
       </div>
     );
   }
-
-  useEffect(() => {
-    window.scrollTo(0, 0);
-  }, []);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;
@@ -311,33 +313,58 @@ export default function RegisterPage() {
         skills: formData.skills.filter(skill => skill.trim() !== "") // Filter empty skills
       };
 
-      const { error, needsConfirmation } = await signUpAndLogin(
+      // 🔍 DEBUG: Log registration attempt details
+      console.log("🚀 INICIANDO REGISTRO:");
+      console.log("📧 Email:", formData.email);
+      console.log("👤 Username:", formData.username);
+      console.log("📋 Metadata:", userMetadata);
+      console.log("🔑 Password length:", formData.password.length);
+
+      const result = await signUpAndLogin(
         formData.email, 
         formData.password,
         userMetadata
       );
+
+      // 🔍 DEBUG: Log result
+      console.log("✅ RESULTADO DEL REGISTRO:", result);
       
-      if (error) {
-        if (error.message.includes('User already registered')) {
+      if (result.error) {
+        console.error("❌ ERROR EN REGISTRO:", result.error);
+        console.error("❌ Error message:", result.error.message);
+        console.error("❌ Error code:", result.error.code);
+        console.error("❌ Full error:", result.error);
+        
+        if (result.error.message.includes('User already registered')) {
           setErrors({ general: "Este email ya está registrado. Intenta iniciar sesión." });
-        } else if (error.message.includes('Password should be')) {
+        } else if (result.error.message.includes('Password should be')) {
           setErrors({ general: "La contraseña debe tener al menos 6 caracteres" });
+        } else if (result.error.message.includes('Database error')) {
+          setErrors({ general: `Error de base de datos: ${result.error.message}` });
         } else {
-          setErrors({ general: error.message || "Error al crear la cuenta. Inténtalo de nuevo." });
+          setErrors({ general: `Error: ${result.error.message}` });
         }
       } else {
-        if (needsConfirmation) {
+        console.log("✅ REGISTRO EXITOSO");
+        console.log("📧 Needs confirmation:", result.needsConfirmation);
+        console.log("👤 User data:", result.user);
+        
+        if (result.needsConfirmation) {
+          console.log("📧 Redirigiendo a login con mensaje de confirmación");
           // Email confirmation required - redirect to login with message
           router.push("/login?message=Cuenta creada exitosamente. Revisa tu email para confirmar tu cuenta");
         } else {
+          console.log("🏠 Redirigiendo al dashboard");
           // Direct login successful - go to dashboard
           router.push("/dashboard");
         }
       }
       
     } catch (error) {
-      console.error("Registration error:", error);
-      setErrors({ general: "Error al crear la cuenta. Inténtalo de nuevo." });
+      console.error("💥 EXCEPCIÓN EN REGISTRO:", error);
+      console.error("💥 Error type:", typeof error);
+      console.error("💥 Error stack:", error instanceof Error ? error.stack : 'No stack');
+      setErrors({ general: `Error inesperado: ${error instanceof Error ? error.message : String(error)}` });
     } finally {
       setIsLoading(false);
     }

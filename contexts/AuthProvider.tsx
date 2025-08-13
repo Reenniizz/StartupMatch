@@ -14,7 +14,7 @@ interface AuthContextType {
     email: string, 
     password: string, 
     metadata?: { firstName?: string; lastName?: string; username?: string; [key: string]: any }
-  ) => Promise<{ error: any; needsConfirmation?: boolean }>;
+  ) => Promise<{ error: any; needsConfirmation?: boolean; user?: any }>;
   signOut: () => Promise<void>;
 }
 
@@ -91,35 +91,61 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     username?: string;
     [key: string]: any;
   }) => {
-    // Try to sign up first
-    const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: metadata || {}
+    // 🔍 DEBUG: Log signup attempt
+    console.log("🔍 AUTH PROVIDER - INICIANDO SIGNUP");
+    console.log("📧 Email:", email);
+    console.log("🔑 Password provided:", !!password);
+    console.log("📋 Metadata:", metadata);
+
+    try {
+      // Try to sign up first
+      const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: metadata || {}
+        }
+      });
+      
+      // 🔍 DEBUG: Log Supabase response
+      console.log("🔍 SUPABASE SIGNUP RESPONSE:");
+      console.log("✅ Data:", signUpData);
+      console.log("❌ Error:", signUpError);
+      console.log("👤 User created:", !!signUpData?.user);
+      console.log("🔐 Session created:", !!signUpData?.session);
+      console.log("📧 Email confirmed:", signUpData?.user?.email_confirmed_at);
+      
+      if (signUpError) {
+        console.error("❌ SIGNUP ERROR:", signUpError);
+        return { error: signUpError };
       }
-    });
-    
-    if (signUpError) {
-      return { error: signUpError };
-    }
 
-    // If signup successful, check if user was created and session exists
-    if (signUpData.session) {
-      // User is already logged in (email confirmation disabled)
-      return { error: null };
-    }
+      // If signup successful, check if user was created and session exists
+      if (signUpData.session) {
+        // User is already logged in (email confirmation disabled)
+        console.log("✅ SESIÓN CREADA - Usuario logueado automáticamente");
+        return { error: null, user: signUpData.user };
+      }
 
-    // If no session but user was created, it means email confirmation is required
-    // But we still consider this a successful registration
-    if (signUpData.user) {
-      return { 
-        error: null, 
-        needsConfirmation: !signUpData.user.email_confirmed_at 
-      };
-    }
+      // If no session but user was created, it means email confirmation is required
+      // But we still consider this a successful registration
+      if (signUpData.user) {
+        console.log("📧 USUARIO CREADO - Confirmación de email requerida");
+        return { 
+          error: null, 
+          needsConfirmation: !signUpData.user.email_confirmed_at,
+          user: signUpData.user
+        };
+      }
 
-    return { error: new Error('Unknown error during registration') };
+      // Neither session nor user - something went wrong
+      console.error("❌ NO SE CREÓ USUARIO NI SESIÓN");
+      return { error: { message: "No se pudo crear el usuario" } };
+
+    } catch (error) {
+      console.error("💥 EXCEPCIÓN EN SIGNUP:", error);
+      return { error: { message: `Error inesperado: ${error instanceof Error ? error.message : String(error)}` } };
+    }
   };
 
   const signOut = async () => {

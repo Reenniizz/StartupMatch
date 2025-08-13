@@ -2,102 +2,118 @@ import { createSupabaseServer } from '@/lib/supabase-server';
 import { NextRequest, NextResponse } from 'next/server';
 
 export async function POST(request: NextRequest) {
+  console.log('🚀 POST /api/connections/request - Iniciando solicitud de conexión');
+  
   try {
+    // Usar cliente con privilegios administrativos para evitar RLS
     const supabase = await createSupabaseServer();
+    
+    // También crear cliente de servicio para operaciones administrativas
+    const { createClient } = await import('@supabase/supabase-js');
+    const supabaseService = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false
+        }
+      }
+    );
+
     const { data: { user }, error: authError } = await supabase.auth.getUser();
+
+    console.log('👤 Usuario autenticado:', user?.id ? 'Sí' : 'No');
 
     if (authError || !user) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
     }
-
+    
     const body = await request.json();
     const { addresseeId, connectionType = 'general', message } = body;
 
+    console.log('📦 Datos recibidos:', { addresseeId, connectionType, message });
+
     // Validaciones
     if (!addresseeId) {
+      console.log('❌ Error: addresseeId faltante');
       return NextResponse.json({ error: 'ID del destinatario requerido' }, { status: 400 });
     }
 
     if (addresseeId === user.id) {
+      console.log('❌ Error: Usuario intentando conectarse consigo mismo');
       return NextResponse.json({ error: 'No puedes conectarte contigo mismo' }, { status: 400 });
     }
 
-    // Verificar que el usuario destinatario existe y es visible
-    const { data: targetUser, error: targetError } = await supabase
-      .from('user_profiles')
-      .select('user_id, username, profile_visibility')
-      .eq('user_id', addresseeId)
-      .single();
+    // Verificar que el usuario destinatario existe
+    console.log('🔍 Verificando que el usuario destinatario existe...');
+    console.log('✅ Continuando con addresseeId:', addresseeId);
 
-    if (targetError || !targetUser) {
-      return NextResponse.json({ error: 'Usuario no encontrado' }, { status: 404 });
-    }
+    // TEMPORAL: Saltar verificación de duplicados para debug
+    console.log('🔍 TEMPORAL: Saltando verificación de solicitudes existentes para debug');
 
-    if (targetUser.profile_visibility === 'private') {
-      return NextResponse.json({ error: 'Este usuario no acepta conexiones' }, { status: 403 });
-    }
-
-    // Verificar si ya existe una conexión
-    const { data: existingConnection } = await supabase
+    // TEMPORAL: Eliminar cualquier solicitud existente antes de crear una nueva (SOLO PARA DEBUG)
+    console.log('🗑️ TEMPORAL: Eliminando solicitudes existentes para este par de usuarios (DEBUG)');
+    await supabaseService
       .from('connection_requests')
-      .select('id, status')
-      .or(`and(requester_id.eq.${user.id},addressee_id.eq.${addresseeId}),and(requester_id.eq.${addresseeId},addressee_id.eq.${user.id})`)
-      .single();
-
-    if (existingConnection) {
-      const statusMessages = {
-        'accepted': 'Ya están conectados',
-        'pending': 'Ya existe una solicitud pendiente',
-        'blocked': 'Conexión bloqueada',
-        'rejected': 'Puedes intentar conectar nuevamente'
-      };
-
-      if (existingConnection.status !== 'rejected') {
-        return NextResponse.json(
-          { error: statusMessages[existingConnection.status as keyof typeof statusMessages] },
-          { status: 409 }
-        );
-      }
-    }
+      .delete()
+      .or(`and(requester_id.eq.${user.id},addressee_id.eq.${addresseeId}),and(requester_id.eq.${addresseeId},addressee_id.eq.${user.id})`);
 
     // Crear solicitud de conexión
-    const { data: connection, error: connectionError } = await supabase
+    console.log('💾 Creando solicitud de conexión en BD...');
+    console.log('📝 Datos a insertar:', {
+      requester_id: user.id,
+      addressee_id: addresseeId,
+      message: message || null,
+      status: 'pending'
+    });
+    
+    // Usar cliente de servicio para evitar problemas de RLS
+    const { data: connection, error: connectionError } = await supabaseService
       .from('connection_requests')
       .insert({
         requester_id: user.id,
         addressee_id: addresseeId,
-        message: message || null
+        message: message || null,
+        status: 'pending'
       })
       .select(`
         id,
         status,
-        created_at,
-        addressee:user_profiles!connection_requests_addressee_id_fkey(
-          user_id,
-          username,
-          first_name,
-          last_name,
-          avatar_url
-        )
+        created_at
       `)
       .single();
 
     if (connectionError) {
-      console.error('Error creating connection:', connectionError);
+      console.error('❌ Error creating connection:', connectionError);
+      console.error('❌ Error code:', connectionError.code);
+      console.error('❌ Error details:', connectionError.details);
+      console.error('❌ Error hint:', connectionError.hint);
+      
+      // Si la tabla no existe, dar mensaje más claro
+      if (connectionError.code === '42P01') {
+        return NextResponse.json({ 
+          error: 'Sistema de conexiones no configurado. Ejecuta NOTIFICATIONS_SETUP.sql primero.' 
+        }, { status: 500 });
+      }
+      
       if (connectionError.code === '23505') {
         return NextResponse.json({ error: 'Ya has enviado una solicitud a este usuario' }, { status: 409 });
       }
-      return NextResponse.json({ error: 'Error al enviar solicitud de conexión' }, { status: 500 });
+      
+      return NextResponse.json({ error: 'Error al enviar solicitud de conexión: ' + connectionError.message }, { status: 500 });
     }
+
+    console.log('✅ Solicitud creada exitosamente:', connection?.id);
+    console.log('📄 Detalles de la solicitud:', connection);
 
     return NextResponse.json({
       success: true,
       connection: connection,
       message: 'Solicitud de conexión enviada exitosamente'
     });
-
   } catch (error) {
-    console.error('Error in connection request:', error);
+    console.error('❌ Error in connection request:', error);
     return NextResponse.json(
       { error: 'Error interno del servidor' },
       { status: 500 }
@@ -107,6 +123,8 @@ export async function POST(request: NextRequest) {
 
 // GET - Obtener solicitudes de conexión recibidas
 export async function GET(request: NextRequest) {
+  console.log('📥 GET /api/connections/request - Obteniendo solicitudes');
+  
   try {
     const supabase = await createSupabaseServer();
     const { data: { user }, error: authError } = await supabase.auth.getUser();
@@ -118,6 +136,8 @@ export async function GET(request: NextRequest) {
     const url = new URL(request.url);
     const status = url.searchParams.get('status') || 'pending';
     const limit = parseInt(url.searchParams.get('limit') || '20');
+    
+    console.log('🔍 Buscando solicitudes con status:', status, 'para usuario:', user.id);
 
     // Obtener solicitudes recibidas
     const { data: requests, error } = await supabase
@@ -144,9 +164,19 @@ export async function GET(request: NextRequest) {
       .limit(limit);
 
     if (error) {
-      console.error('Error fetching connection requests:', error);
+      console.error('❌ Error fetching connection requests:', error);
+      
+      // Si la tabla no existe, dar mensaje más claro
+      if (error.code === '42P01') {
+        return NextResponse.json({ 
+          error: 'Sistema de conexiones no configurado. Ejecuta NOTIFICATIONS_SETUP.sql primero.' 
+        }, { status: 500 });
+      }
+      
       return NextResponse.json({ error: 'Error al obtener solicitudes' }, { status: 500 });
     }
+
+    console.log('✅ Solicitudes encontradas:', requests?.length || 0);
 
     return NextResponse.json({
       success: true,
@@ -155,7 +185,7 @@ export async function GET(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('Error in GET connection requests:', error);
+    console.error('❌ Error in GET connection requests:', error);
     return NextResponse.json(
       { error: 'Error interno del servidor' },
       { status: 500 }

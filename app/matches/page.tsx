@@ -71,10 +71,12 @@ export default function MatchesPage() {
   const {
     connections,
     connectionRequests,
+    sentRequests,
     loading: connectionsLoading,
     stats: connectionStats,
     fetchConnections,
     fetchConnectionRequests,
+    fetchSentRequests,
     respondToConnection,
     refreshAll: refreshConnections
   } = useConnections();
@@ -111,6 +113,7 @@ export default function MatchesPage() {
     if (user) {
       fetchConnections();
       fetchConnectionRequests();
+      fetchSentRequests();
     }
   }, [user]); // Solo depende de user, no de las funciones
 
@@ -843,15 +846,117 @@ export default function MatchesPage() {
 
           {/* Sent Requests Tab */}
           <TabsContent value="sent">
-            <Card>
-              <CardContent className="p-12 text-center">
-                <Mail className="h-12 w-12 text-slate-400 mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-slate-900 mb-2">Solicitudes enviadas</h3>
-                <p className="text-slate-500">
-                  Aquí verás el estado de las solicitudes que has enviado
-                </p>
-              </CardContent>
-            </Card>
+            <div className="space-y-6">
+              {connectionsLoading ? (
+                <div className="space-y-4">
+                  {[...Array(3)].map((_, i) => (
+                    <Card key={i} className="animate-pulse">
+                      <CardContent className="p-6">
+                        <div className="flex items-center space-x-4">
+                          <div className="h-12 w-12 bg-slate-200 rounded-lg"></div>
+                          <div className="flex-1">
+                            <div className="h-4 bg-slate-200 rounded mb-2"></div>
+                            <div className="h-4 bg-slate-200 rounded w-2/3"></div>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              ) : sentRequests.length === 0 ? (
+                <Card>
+                  <CardContent className="p-12 text-center">
+                    <Mail className="h-12 w-12 text-slate-400 mx-auto mb-4" />
+                    <h3 className="text-lg font-medium text-slate-900 mb-2">No has enviado solicitudes</h3>
+                    <p className="text-slate-500 mb-4">
+                      Las solicitudes que envíes a otros usuarios aparecerán aquí
+                    </p>
+                    <Link href="/explore">
+                      <Button className="bg-slate-900 hover:bg-slate-800 text-white">
+                        <Target className="h-4 w-4 mr-2" />
+                        Explorar perfiles
+                      </Button>
+                    </Link>
+                  </CardContent>
+                </Card>
+              ) : (
+                <div className="space-y-4">
+                  {sentRequests.map((request) => (
+                    <Card key={request.id} className="border-l-4 border-blue-400">
+                      <CardContent className="p-6">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center space-x-4">
+                            <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center text-white font-bold">
+                              {request.addressee?.first_name?.[0]}{request.addressee?.last_name?.[0]}
+                            </div>
+                            
+                            <div className="flex-1">
+                              <h3 className="font-semibold text-slate-900 mb-1">
+                                {request.addressee?.first_name} {request.addressee?.last_name}
+                              </h3>
+                              <p className="text-sm text-slate-600 mb-1">
+                                {request.addressee?.role} • {request.addressee?.company}
+                              </p>
+                              <div className="flex items-center text-xs text-slate-500 space-x-2">
+                                <span>Enviada {formatDate(request.created_at)}</span>
+                                <span>•</span>
+                                <Badge 
+                                  variant={request.status === 'pending' ? 'outline' : 
+                                          request.status === 'accepted' ? 'default' : 'destructive'} 
+                                  className="text-xs"
+                                >
+                                  {request.status === 'pending' ? 'Pendiente' :
+                                   request.status === 'accepted' ? 'Aceptada' :
+                                   request.status === 'rejected' ? 'Rechazada' : request.status}
+                                </Badge>
+                              </div>
+                              {request.message && (
+                                <div className="bg-slate-50 p-3 rounded-lg mt-2">
+                                  <p className="text-sm text-slate-700">"{request.message}"</p>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                          
+                          <div className="flex items-center space-x-2">
+                            {request.status === 'accepted' && (
+                              <Button
+                                size="sm"
+                                onClick={() => handleStartConversation(request.addressee.user_id)}
+                                className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                              >
+                                <MessageCircle className="h-4 w-4 mr-1" />
+                                Chatear
+                              </Button>
+                            )}
+                            
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button size="sm" variant="outline" className="border-slate-200 p-2">
+                                  <MoreHorizontal className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent>
+                                <DropdownMenuItem onClick={() => router.push(`/profile/${request.addressee.user_id}`)}>
+                                  <Eye className="h-4 w-4 mr-2" />
+                                  Ver perfil
+                                </DropdownMenuItem>
+                                {request.status === 'pending' && (
+                                  <DropdownMenuItem className="text-red-600">
+                                    <XCircle className="h-4 w-4 mr-2" />
+                                    Cancelar solicitud
+                                  </DropdownMenuItem>
+                                )}
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </div>
           </TabsContent>
         </Tabs>
       </div>

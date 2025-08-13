@@ -6,6 +6,7 @@
 -- 🎯 PARTE 1: ELIMINAR TODOS LOS TRIGGERS EXISTENTES
 DROP TRIGGER IF EXISTS create_user_profile_trigger ON auth.users;
 DROP TRIGGER IF EXISTS create_user_profile_simple_trigger ON auth.users;
+DROP TRIGGER IF EXISTS ensure_user_profile ON auth.users;
 
 -- 🎯 PARTE 2: FUNCIÓN ULTRA SIMPLE QUE SIEMPRE FUNCIONA
 CREATE OR REPLACE FUNCTION create_profile_guaranteed()

@@ -11,13 +11,11 @@ const supabase = createClient(
 
 export const dynamic = 'force-dynamic'
 
-const SocketHandler = async (req: NextRequest) => {
-  const res = NextResponse.next()
-  
-  // Cast para acceder a socket
-  const response = res as any
+// Global variable to store the Socket.IO server
+let io: ServerIO | undefined;
 
-  if (response.socket?.server.io) {
+const SocketHandler = async (req: NextRequest) => {
+  if (io) {
     console.log('🔗 Socket ya está inicializado');
     return new NextResponse('Socket server already running', { status: 200 })
   }
@@ -25,9 +23,8 @@ const SocketHandler = async (req: NextRequest) => {
   console.log('🚀 Inicializando Socket.IO server');
   
   try {
-    const httpServer = response.socket?.server || new NetServer()
-    
-    const io = new ServerIO(httpServer, {
+    // Create Socket.IO server with proper configuration
+    io = new ServerIO({
       path: '/api/socketio',
       addTrailingSlash: false,
       cors: {
@@ -36,17 +33,16 @@ const SocketHandler = async (req: NextRequest) => {
       }
     });
 
-    if (response.socket?.server) {
-      response.socket.server.io = io;
-    }
-
     io.on('connection', (socket) => {
       console.log(`🔌 Usuario conectado: ${socket.id}`);
 
-      // Usuario se une a su sala personal (basada en su user ID)
-      socket.on('join-user-room', (userId: string) => {
+      // Usuario se une cuando envía su ID
+      socket.on('join-user', (userId: string) => {
         socket.join(`user:${userId}`);
         console.log(`👤 Usuario ${userId} se unió a su sala personal`);
+        
+        // Emitir que el usuario está online
+        socket.broadcast.emit('user-online', userId);
       });
 
       // Usuario se une a una conversación específica
@@ -91,7 +87,9 @@ const SocketHandler = async (req: NextRequest) => {
           };
 
           // Enviar a la sala de la conversación
-          io.to(`conversation:${conversationId}`).emit('new-message', messageData);
+          if (io) {
+            io.to(`conversation:${conversationId}`).emit('new-message', messageData);
+          }
 
           // Confirmar al remitente
           socket.emit('message-sent', { messageId: newMessage.id, status: 'delivered' });
@@ -115,6 +113,8 @@ const SocketHandler = async (req: NextRequest) => {
 
       socket.on('disconnect', () => {
         console.log(`🔌 Usuario desconectado: ${socket.id}`);
+        // Emitir que el usuario está offline (necesitaríamos el userId aquí)
+        // socket.broadcast.emit('user-offline', userId);
       });
     });
 

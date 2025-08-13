@@ -125,7 +125,7 @@ export default function MatchesAndConnections() {
   // Responder a solicitud de conexión
   const respondToConnection = async (connectionId: string, status: 'accepted' | 'rejected') => {
     try {
-      const response = await fetch(`/api/connections/${connectionId}`, {
+      const response = await fetch(`/api/connections/request/${connectionId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status })

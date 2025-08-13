@@ -178,20 +178,52 @@ export default function ExplorePage() {
     }
   };
 
-  const handleLike = async (profileId: string) => {
+  const handleConnect = async (profileId: string) => {
     try {
-      // TODO: Implement actual like functionality
-      toast({
-        title: "¡Match!",
-        description: "Has enviado un like. Te notificaremos si es mutuo.",
-      });
+      console.log('🚀 Enviando solicitud de conexión desde /explore a usuario:', profileId);
       
-      // Remove from current matches
-      setMatches(prev => prev.filter(match => match.id !== profileId));
+      const response = await fetch('/api/connections/request', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          addresseeId: profileId,
+          connectionType: 'general',
+          message: '¡Hola! Me gustaría conectar contigo a través de StartupMatch.'
+        })
+      });
+
+      console.log('📡 Respuesta del servidor:', response.status, response.statusText);
+      
+      let data;
+      try {
+        data = await response.json();
+        console.log('📦 Datos recibidos:', data);
+      } catch (jsonError) {
+        console.error('❌ Error parseando JSON:', jsonError);
+        console.log('📄 Response text:', await response.text());
+        throw new Error('Respuesta del servidor no válida');
+      }
+
+      if (response.ok) {
+        toast({
+          title: "¡Solicitud enviada!",
+          description: "Tu solicitud de conexión ha sido enviada. El usuario la verá en su sección de Matches.",
+        });
+        
+        // Remove from current matches
+        setMatches(prev => prev.filter(match => match.id !== profileId));
+      } else {
+        toast({
+          title: "Error al conectar",
+          description: data.error || "No se pudo enviar la solicitud de conexión",
+          variant: "destructive",
+        });
+      }
     } catch (error) {
+      console.error('Error sending connection:', error);
       toast({
         title: "Error",
-        description: "No se pudo enviar el like",
+        description: "Error de conexión al enviar la solicitud",
         variant: "destructive",
       });
     }
@@ -457,7 +489,7 @@ export default function ExplorePage() {
                           <Eye className="h-4 w-4" />
                         </Button>
                         <Button
-                          onClick={() => handleLike(match.id)}
+                          onClick={() => handleConnect(match.id)}
                           size="sm"
                           className="flex-1 bg-blue-600 hover:bg-blue-700"
                         >
@@ -597,7 +629,7 @@ export default function ExplorePage() {
                   </Button>
                   <Button
                     onClick={() => {
-                      handleLike(selectedProfile.id);
+                      handleConnect(selectedProfile.id);
                       setSelectedProfile(null);
                     }}
                     className="flex-1 bg-blue-600 hover:bg-blue-700"

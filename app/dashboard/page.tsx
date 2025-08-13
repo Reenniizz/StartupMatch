@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/contexts/AuthProvider";
+import NotificationCenter from "@/components/NotificationCenter";
 import { 
   Home, 
   Menu, 
@@ -133,12 +134,7 @@ export default function DashboardPage() {
 
             {/* Right side */}
             <div className="flex items-center space-x-2">
-              <Button variant="ghost" size="sm" className="relative">
-                <Bell className="h-5 w-5" />
-                <span className="absolute -top-1 -right-1 h-4 w-4 bg-red-500 text-white text-xs rounded-full flex items-center justify-center">
-                  2
-                </span>
-              </Button>
+              <NotificationCenter />
               <Button 
                 variant="ghost" 
                 size="sm"

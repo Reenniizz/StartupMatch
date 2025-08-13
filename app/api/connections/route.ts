@@ -44,13 +44,68 @@ export async function GET(request: NextRequest) {
     // Limitar resultados
     filteredConnections = filteredConnections.slice(0, limit);
 
-    // Obtener estadísticas adicionales
+    // Obtener estadísticas adicionales usando cliente de servicio
+    const { createClient } = await import('@supabase/supabase-js');
+    const supabaseService = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false
+        }
+      }
+    );
+
+    // Calcular estadísticas reales
     const stats = {
       total_accepted: 0,
       pending_received: 0,
       pending_sent: 0,
       weekly_new: 0
     };
+
+    // Obtener solicitudes pendientes recibidas
+    const { data: pendingReceived } = await supabaseService
+      .from('connection_requests')
+      .select('id')
+      .eq('addressee_id', user.id)
+      .eq('status', 'pending');
+
+    stats.pending_received = pendingReceived?.length || 0;
+
+    // Obtener solicitudes pendientes enviadas
+    const { data: pendingSent } = await supabaseService
+      .from('connection_requests')
+      .select('id')
+      .eq('requester_id', user.id)
+      .eq('status', 'pending');
+
+    stats.pending_sent = pendingSent?.length || 0;
+
+    // Obtener conexiones aceptadas
+    const { data: accepted } = await supabaseService
+      .from('connection_requests')
+      .select('id')
+      .or(`requester_id.eq.${user.id},addressee_id.eq.${user.id}`)
+      .eq('status', 'accepted');
+
+    stats.total_accepted = accepted?.length || 0;
+
+    // Obtener nuevas conexiones de esta semana
+    const oneWeekAgo = new Date();
+    oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+    
+    const { data: weeklyNew } = await supabaseService
+      .from('connection_requests')
+      .select('id')
+      .or(`requester_id.eq.${user.id},addressee_id.eq.${user.id}`)
+      .eq('status', 'accepted')
+      .gte('updated_at', oneWeekAgo.toISOString());
+
+    stats.weekly_new = weeklyNew?.length || 0;
+
+    console.log(`📊 Estadísticas calculadas para usuario ${user.id}:`, stats);
 
     return NextResponse.json({
       success: true,
