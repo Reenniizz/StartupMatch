@@ -137,6 +137,12 @@ const Header = () => {
                           Configuración
                         </div>
                       </Link>
+                      <Link href="/test-notifications">
+                        <div className="flex items-center gap-2 px-4 py-2 text-purple-700 hover:bg-purple-50 cursor-pointer">
+                          <Zap className="w-4 h-4" />
+                          🧪 Test Push
+                        </div>
+                      </Link>
                       <hr className="my-2" />
                       <button
                         onClick={handleLogout}

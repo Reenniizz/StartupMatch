@@ -1,0 +1,27 @@
+<!-- Icono SVG básico para StartupMatch -->
+<svg width="192" height="192" viewBox="0 0 192 192" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Fondo circular -->
+  <circle cx="96" cy="96" r="96" fill="#3b82f6"/>
+  
+  <!-- Icono de conexión/red -->
+  <g fill="white">
+    <!-- Nodos -->
+    <circle cx="60" cy="60" r="12"/>
+    <circle cx="132" cy="60" r="12"/>
+    <circle cx="96" cy="120" r="12"/>
+    <circle cx="40" cy="120" r="8"/>
+    <circle cx="152" cy="120" r="8"/>
+    
+    <!-- Conexiones -->
+    <path d="M60 60 L132 60" stroke="white" stroke-width="4" stroke-linecap="round"/>
+    <path d="M60 60 L96 120" stroke="white" stroke-width="4" stroke-linecap="round"/>
+    <path d="M132 60 L96 120" stroke="white" stroke-width="4" stroke-linecap="round"/>
+    <path d="M40 120 L96 120" stroke="white" stroke-width="4" stroke-linecap="round"/>
+    <path d="M152 120 L96 120" stroke="white" stroke-width="4" stroke-linecap="round"/>
+  </g>
+  
+  <!-- Texto StartupMatch -->
+  <text x="96" y="160" font-family="Arial, sans-serif" font-size="14" font-weight="bold" text-anchor="middle" fill="white">
+    StartupMatch
+  </text>
+</svg>
