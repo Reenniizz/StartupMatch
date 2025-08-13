@@ -226,6 +226,16 @@ interface ConnectionRequest {
     role?: string;
     location?: string;
   };
+  addressee?: {
+    user_id: string;
+    username: string;
+    first_name: string;
+    last_name: string;
+    avatar_url?: string;
+    company?: string;
+    role?: string;
+    location?: string;
+  };
 }
 
 interface UseConnectionsResult {

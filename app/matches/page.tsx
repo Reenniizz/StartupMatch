@@ -200,6 +200,11 @@ export default function MatchesPage() {
         
         // Refresh both connections and requests
         await refreshConnections();
+        
+        // Si se aceptó la conexión, cambiar automáticamente a la pestaña de conexiones
+        if (response === 'accepted') {
+          setActiveTab('connections');
+        }
       } else {
         toast({
           title: "Error",
@@ -919,10 +924,10 @@ export default function MatchesPage() {
                           </div>
                           
                           <div className="flex items-center space-x-2">
-                            {request.status === 'accepted' && (
+                            {request.status === 'accepted' && request.addressee && (
                               <Button
                                 size="sm"
-                                onClick={() => handleStartConversation(request.addressee.user_id)}
+                                onClick={() => handleStartConversation(request.addressee!.user_id)}
                                 className="bg-emerald-600 hover:bg-emerald-700 text-white"
                               >
                                 <MessageCircle className="h-4 w-4 mr-1" />
@@ -937,7 +942,7 @@ export default function MatchesPage() {
                                 </Button>
                               </DropdownMenuTrigger>
                               <DropdownMenuContent>
-                                <DropdownMenuItem onClick={() => router.push(`/profile/${request.addressee.user_id}`)}>
+                                <DropdownMenuItem onClick={() => request.addressee && router.push(`/profile/${request.addressee.user_id}`)}>
                                   <Eye className="h-4 w-4 mr-2" />
                                   Ver perfil
                                 </DropdownMenuItem>

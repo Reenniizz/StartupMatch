@@ -10,11 +10,36 @@ export async function PUT(request: NextRequest) {
   try {
     console.log('🚀 PUT /api/connections/respond - Respondiendo a solicitud de conexión');
 
-    // Obtener usuario autenticado
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    // Crear cliente de servicio para evitar problemas con RLS
+    const { createClient } = await import('@supabase/supabase-js');
+    const supabaseService = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false
+        }
+      }
+    );
+
+    // También necesitamos el cliente regular para validar auth
+    const { supabase } = await import('@/lib/supabase-client');
+
+    // Obtener token de autorización del header
+    const authHeader = request.headers.get('Authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      console.log('❌ No se encontró token de autorización');
+      return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+    }
+
+    const token = authHeader.replace('Bearer ', '');
+    
+    // Verificar usuario con el token
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
     
     if (authError || !user) {
-      console.log('❌ Usuario no autenticado');
+      console.log('❌ Token inválido o usuario no encontrado:', authError?.message);
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
     }
 
@@ -32,7 +57,7 @@ export async function PUT(request: NextRequest) {
     console.log('📦 Datos recibidos:', { connectionRequestId, response });
 
     // Verificar que la solicitud existe y pertenece al usuario actual (como addressee)
-    const { data: existingRequest, error: checkError } = await supabase
+    const { data: existingRequest, error: checkError } = await supabaseService
       .from('connection_requests')
       .select('*')
       .eq('id', connectionRequestId)
@@ -50,7 +75,7 @@ export async function PUT(request: NextRequest) {
     console.log('✅ Solicitud encontrada, actualizando estado...');
 
     // Actualizar el estado de la solicitud
-    const { data: updatedRequest, error: updateError } = await supabase
+    const { data: updatedRequest, error: updateError } = await supabaseService
       .from('connection_requests')
       .update({ 
         status: response,
@@ -73,7 +98,7 @@ export async function PUT(request: NextRequest) {
     if (response === 'accepted') {
       console.log('📬 Creando notificación de conexión aceptada...');
       
-      const { error: notificationError } = await supabase
+      const { error: notificationError } = await supabaseService
         .from('notifications')
         .insert({
           user_id: existingRequest.requester_id,
