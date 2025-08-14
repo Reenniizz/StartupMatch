@@ -3,24 +3,47 @@ import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Heart, Users, Calendar, ExternalLink, Eye, ImageIcon } from 'lucide-react';
+import { Heart, Users, Calendar, ExternalLink, Eye, ImageIcon, Edit, Trash2, MoreVertical } from 'lucide-react';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { projectStorageService, ProjectFile } from '@/lib/project-storage';
+import { useAuth } from '@/contexts/AuthProvider';
+import DeleteProjectDialog from '@/components/DeleteProjectDialog';
 import Link from 'next/link';
 import { formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 
 interface ProjectCardProps {
   project: Project;
   onLike?: (projectId: string) => void;
   onBookmark?: (projectId: string) => void;
   onClick?: (project: Project) => void;
+  onDelete?: (projectId: string) => void;
+  onDeleteDialogOpen?: () => void;
   showActions?: boolean;
+  showOwnerActions?: boolean;
 }
 
-export function ProjectCard({ project, onLike, onBookmark, onClick, showActions = true }: ProjectCardProps) {
+export function ProjectCard({ 
+  project, 
+  onLike, 
+  onBookmark, 
+  onClick, 
+  onDelete,
+  onDeleteDialogOpen,
+  showActions = true,
+  showOwnerActions = true
+}: ProjectCardProps) {
   const [projectImages, setProjectImages] = useState<ProjectFile[]>([]);
   const [loadingImages, setLoadingImages] = useState(false);
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [preventCardClick, setPreventCardClick] = useState(false);
+  const { user } = useAuth();
+  const router = useRouter();
+
+  // Check if current user is the owner
+  const isOwner = user?.id === project.creator_id;
 
   // Load project images
   useEffect(() => {
@@ -79,8 +102,32 @@ export function ProjectCard({ project, onLike, onBookmark, onClick, showActions 
     onBookmark?.(project.id);
   };
 
-  const handleCardClick = () => {
+  const handleCardClick = (e: React.MouseEvent) => {
+    // Don't open project modal if we're interacting with dropdown or if prevented
+    if (preventCardClick) {
+      setPreventCardClick(false); // Reset the flag
+      return;
+    }
+    
+    // Check if click is on dropdown or its children
+    const target = e.target as HTMLElement;
+    if (target.closest('[data-dropdown-trigger]') || target.closest('[role="menu"]')) {
+      return;
+    }
+    
     onClick?.(project);
+  };
+
+  const handleEdit = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    router.push(`/projects/${project.id}/edit`);
+  };
+
+  const handleDelete = () => {
+    if (onDelete) {
+      onDelete(project.id);
+    }
   };
 
   const CardContentJSX = (
@@ -109,11 +156,53 @@ export function ProjectCard({ project, onLike, onBookmark, onClick, showActions 
             </div>
           </div>
           
-          {project.is_featured && (
-            <Badge variant="secondary" className="bg-yellow-100 text-yellow-800 border-yellow-200">
-              ✨ Featured
-            </Badge>
-          )}
+          <div className="flex items-center gap-2">
+            {project.is_featured && (
+              <Badge variant="secondary" className="bg-yellow-100 text-yellow-800 border-yellow-200">
+                ✨ Featured
+              </Badge>
+            )}
+            
+            {/* Owner actions */}
+            {isOwner && showOwnerActions && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    className="h-8 w-8 p-0"
+                    data-dropdown-trigger="true"
+                  >
+                    <MoreVertical className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={handleEdit}>
+                    <Edit className="mr-2 h-4 w-4" />
+                    Editar proyecto
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={(e) => e.stopPropagation()}>
+                    <Eye className="mr-2 h-4 w-4" />
+                    Ver estadísticas
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem 
+                    className="text-red-600 focus:text-red-600 focus:bg-red-50"
+                    onSelect={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setPreventCardClick(true);
+                      onDeleteDialogOpen?.(); // Close any open project info modal
+                      setDeleteModalOpen(true);
+                    }}
+                  >
+                    <Trash2 className="mr-2 h-4 w-4" />
+                    Eliminar proyecto
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+          </div>
         </div>
 
         {/* Tagline */}
@@ -250,16 +339,26 @@ export function ProjectCard({ project, onLike, onBookmark, onClick, showActions 
   );
 
   return (
-    <Card className="group hover:shadow-lg transition-all duration-200 border-border/50 hover:border-border">
-      {onClick ? (
-        <div onClick={handleCardClick} className="cursor-pointer">
-          {CardContentJSX}
-        </div>
-      ) : (
-        <Link href={`/projects/${project.id}`}>
-          {CardContentJSX}
-        </Link>
-      )}
-    </Card>
+    <>
+      <Card className="group hover:shadow-lg transition-all duration-200 border-border/50 hover:border-border">
+        {onClick ? (
+          <div onClick={handleCardClick} className="cursor-pointer">
+            {CardContentJSX}
+          </div>
+        ) : (
+          <Link href={`/projects/${project.id}`}>
+            {CardContentJSX}
+          </Link>
+        )}
+      </Card>
+
+      {/* Delete Modal - Rendered outside the card to avoid event conflicts */}
+      <DeleteProjectDialog
+        project={project}
+        open={deleteModalOpen}
+        onOpenChange={setDeleteModalOpen}
+        onDelete={handleDelete}
+      />
+    </>
   );
 }

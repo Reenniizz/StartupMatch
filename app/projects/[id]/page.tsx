@@ -20,11 +20,15 @@ import {
   DollarSign,
   Clock,
   MapPin,
-  MessageSquare
+  MessageSquare,
+  Edit,
+  Settings
 } from 'lucide-react';
 import { useRouter, useParams } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
+import { useAuth } from '@/contexts/AuthProvider';
+import DeleteProjectDialog from '@/components/DeleteProjectDialog';
 
 interface ProjectData {
   id: string;
@@ -78,10 +82,14 @@ export default function ProjectDetailPage() {
   const router = useRouter();
   const params = useParams();
   const projectId = params?.id as string;
+  const { user } = useAuth();
   
   const [project, setProject] = useState<ProjectData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Check if current user is the owner
+  const isOwner = user?.id === project?.creator_id;
 
   useEffect(() => {
     if (projectId) {
@@ -177,6 +185,10 @@ export default function ProjectDetailPage() {
     }
   };
 
+  const handleDeleteSuccess = () => {
+    router.push('/projects?tab=created&deleted=true');
+  };
+
   const getStatusBadge = (status: string) => {
     const statusMap: Record<string, { label: string; variant: any }> = {
       'idea': { label: '💡 Idea', variant: 'secondary' },
@@ -256,6 +268,31 @@ export default function ProjectDetailPage() {
           <div className="flex-1" />
           
           <div className="flex items-center gap-2">
+            {/* Owner actions */}
+            {isOwner && (
+              <>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => router.push(`/projects/${projectId}/edit`)}
+                >
+                  <Edit className="h-4 w-4 mr-2" />
+                  Editar
+                </Button>
+                
+                <DeleteProjectDialog
+                  project={project as any}
+                  onDelete={handleDeleteSuccess}
+                  trigger={
+                    <Button variant="outline" size="sm" className="text-red-600 hover:text-red-700 hover:bg-red-50">
+                      <Settings className="h-4 w-4 mr-2" />
+                      Configurar
+                    </Button>
+                  }
+                />
+              </>
+            )}
+            
             <Button
               variant={project.user_interactions?.has_liked ? "default" : "outline"}
               size="sm"

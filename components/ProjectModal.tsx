@@ -52,6 +52,23 @@ export function ProjectModal({
   const { user } = useAuth();
   const [projectFiles, setProjectFiles] = useState<ProjectFile[]>([]);
   const [loadingFiles, setLoadingFiles] = useState(false);
+
+  // Helper function to parse arrays that might be stored as JSON strings
+  const parseArrayField = (field: any): string[] => {
+    if (Array.isArray(field)) {
+      return field;
+    }
+    if (typeof field === 'string' && field.trim()) {
+      try {
+        const parsed = JSON.parse(field);
+        return Array.isArray(parsed) ? parsed : [];
+      } catch {
+        // If JSON parsing fails, try splitting by comma
+        return field.split(',').map((item: string) => item.trim()).filter((item: string) => item);
+      }
+    }
+    return [];
+  };
   const [showUpload, setShowUpload] = useState(false);
   
   // Check if current user is the project owner
@@ -240,7 +257,7 @@ export function ProjectModal({
                 <div className="space-y-3">
                   <h3 className="text-lg font-semibold">Stack Tecnológico</h3>
                   <div className="flex flex-wrap gap-2">
-                    {project.tech_stack.map((tech, index) => (
+                    {parseArrayField(project.tech_stack).map((tech, index) => (
                       <Badge key={index} variant="secondary">
                         {tech}
                       </Badge>
@@ -257,7 +274,7 @@ export function ProjectModal({
                 <div className="space-y-3">
                   <h3 className="text-lg font-semibold">Habilidades Requeridas</h3>
                   <div className="flex flex-wrap gap-2">
-                    {project.required_skills.map((skill, index) => (
+                    {parseArrayField(project.required_skills).map((skill, index) => (
                       <Badge key={index} variant="outline">
                         {skill}
                       </Badge>

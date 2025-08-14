@@ -114,6 +114,19 @@ export default function ProjectsPage() {
     console.log('Like project:', projectId);
   };
 
+  const handleDelete = async (projectId: string) => {
+    // Close the project info modal if it's open
+    closeProjectModal();
+    
+    // Remove the project from the current list
+    setMyProjects(prev => prev.filter(p => p.id !== projectId));
+  };
+
+  const handleDeleteDialogOpen = () => {
+    // Close the project info modal when delete dialog opens
+    closeProjectModal();
+  };
+
   return (
     <div className="container mx-auto p-6 space-y-8">
       <div className="flex justify-between items-center">
@@ -216,6 +229,8 @@ export default function ProjectsPage() {
                     project={project}
                     onLike={handleLike}
                     onClick={openProjectModal}
+                    onDelete={handleDelete}
+                    onDeleteDialogOpen={handleDeleteDialogOpen}
                     showActions={true}
                   />
                 ))}

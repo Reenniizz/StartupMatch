@@ -11,6 +11,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { FileUpload } from '@/components/FileUpload';
+import RichTextEditor from '@/components/RichTextEditorSimple';
 import { ArrowLeft, ArrowRight, Save, Upload, Eye, CheckCircle, Plus } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { projectStorageService, ProjectFile } from '@/lib/project-storage';
@@ -720,12 +721,11 @@ export default function CreateProjectPage() {
                 
                 <div>
                   <Label htmlFor="description">Descripción General *</Label>
-                  <Textarea
-                    id="description"
+                  <RichTextEditor
                     value={formData.description}
-                    onChange={(e) => updateFormData('description', e.target.value)}
+                    onChange={(value) => updateFormData('description', value)}
                     placeholder="Describe tu proyecto de manera general..."
-                    rows={4}
+                    minHeight={150}
                     className={errors.description ? 'border-red-500' : ''}
                   />
                   {errors.description && <p className="text-red-500 text-sm mt-1">{errors.description}</p>}
@@ -734,12 +734,11 @@ export default function CreateProjectPage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
                     <Label htmlFor="problem">¿Qué problema resuelve? *</Label>
-                    <Textarea
-                      id="problem"
+                    <RichTextEditor
                       value={formData.problem}
-                      onChange={(e) => updateFormData('problem', e.target.value)}
+                      onChange={(value) => updateFormData('problem', value)}
                       placeholder="Describe el problema específico que tu proyecto soluciona..."
-                      rows={3}
+                      minHeight={100}
                       className={errors.problem ? 'border-red-500' : ''}
                     />
                     {errors.problem && <p className="text-red-500 text-sm mt-1">{errors.problem}</p>}
@@ -747,12 +746,11 @@ export default function CreateProjectPage() {
                   
                   <div>
                     <Label htmlFor="solution">¿Cuál es tu solución? *</Label>
-                    <Textarea
-                      id="solution"
+                    <RichTextEditor
                       value={formData.solution}
-                      onChange={(e) => updateFormData('solution', e.target.value)}
+                      onChange={(value) => updateFormData('solution', value)}
                       placeholder="Explica cómo tu proyecto soluciona el problema..."
-                      rows={3}
+                      minHeight={100}
                       className={errors.solution ? 'border-red-500' : ''}
                     />
                     {errors.solution && <p className="text-red-500 text-sm mt-1">{errors.solution}</p>}
@@ -761,12 +759,11 @@ export default function CreateProjectPage() {
                 
                 <div>
                   <Label htmlFor="value_proposition">Propuesta de Valor Única</Label>
-                  <Textarea
-                    id="value_proposition"
+                  <RichTextEditor
                     value={formData.value_proposition}
-                    onChange={(e) => updateFormData('value_proposition', e.target.value)}
+                    onChange={(value) => updateFormData('value_proposition', value)}
                     placeholder="¿Qué hace único a tu proyecto? ¿Por qué alguien elegiría tu solución?"
-                    rows={3}
+                    minHeight={100}
                   />
                 </div>
                 
