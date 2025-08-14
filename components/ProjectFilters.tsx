@@ -32,6 +32,29 @@ const STAGES = [
   { value: 'exit', label: 'Exit' }
 ];
 
+const FUNDING_STAGES = [
+  { value: 'bootstrapped', label: 'Bootstrapped' },
+  { value: 'pre_seed', label: 'Pre-Seed' },
+  { value: 'seed', label: 'Seed' },
+  { value: 'series_a', label: 'Series A' },
+  { value: 'series_b', label: 'Series B' },
+  { value: 'series_c', label: 'Series C' },
+  { value: 'ipo', label: 'IPO' }
+];
+
+const TEAM_SIZES = [
+  { value: '1', label: 'Solo (1 persona)' },
+  { value: '2-5', label: 'Pequeño (2-5 personas)' },
+  { value: '6-10', label: 'Mediano (6-10 personas)' },
+  { value: '11-20', label: 'Grande (11-20 personas)' },
+  { value: '20+', label: 'Muy grande (20+ personas)' }
+];
+
+const LOCATIONS = [
+  'Remoto', 'Madrid', 'Barcelona', 'Valencia', 'Sevilla', 'Bilbao',
+  'Málaga', 'Zaragoza', 'Las Palmas', 'Murcia', 'Palma', 'Otro'
+];
+
 export function ProjectFilters({ filters, onFiltersChange, categories, isLoading }: ProjectFiltersProps) {
   const [localFilters, setLocalFilters] = useState<ProjectSearchFilters>(filters);
   const [searchDebounce, setSearchDebounce] = useState<NodeJS.Timeout | null>(null);
@@ -181,6 +204,69 @@ export function ProjectFilters({ filters, onFiltersChange, categories, isLoading
           </Select>
         </div>
 
+        {/* Location */}
+        <div className="space-y-2">
+          <Label>Ubicación</Label>
+          <Select 
+            value={localFilters.location || 'all'} 
+            onValueChange={(value) => handleFilterChange('location', value === 'all' ? undefined : value)}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Todas las ubicaciones" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todas las ubicaciones</SelectItem>
+              {LOCATIONS.map((location) => (
+                <SelectItem key={location} value={location}>
+                  {location}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Funding Stage */}
+        <div className="space-y-2">
+          <Label>Etapa de Financiación</Label>
+          <Select 
+            value={localFilters.funding_stage || 'all'} 
+            onValueChange={(value) => handleFilterChange('funding_stage', value === 'all' ? undefined : value)}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Todas las etapas" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todas las etapas</SelectItem>
+              {FUNDING_STAGES.map((stage) => (
+                <SelectItem key={stage.value} value={stage.value}>
+                  {stage.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Team Size */}
+        <div className="space-y-2">
+          <Label>Tamaño de Equipo</Label>
+          <Select 
+            value={localFilters.team_size || 'all'} 
+            onValueChange={(value) => handleFilterChange('team_size', value === 'all' ? undefined : value)}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Todos los tamaños" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos los tamaños</SelectItem>
+              {TEAM_SIZES.map((size) => (
+                <SelectItem key={size.value} value={size.value}>
+                  {size.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
         {/* Seeking toggles */}
         <div className="space-y-4">
           <Label className="text-base">Buscando</Label>
@@ -204,6 +290,17 @@ export function ProjectFilters({ filters, onFiltersChange, categories, isLoading
             <Switch
               checked={localFilters.seeking_investors || false}
               onCheckedChange={(checked) => handleFilterChange('seeking_investors', checked || undefined)}
+            />
+          </div>
+          
+          <div className="flex items-center justify-between">
+            <div className="space-y-1">
+              <Label className="text-sm font-normal">Mentores</Label>
+              <p className="text-xs text-muted-foreground">Proyectos buscando mentores</p>
+            </div>
+            <Switch
+              checked={localFilters.seeking_mentors || false}
+              onCheckedChange={(checked) => handleFilterChange('seeking_mentors', checked || undefined)}
             />
           </div>
         </div>
@@ -249,6 +346,33 @@ export function ProjectFilters({ filters, onFiltersChange, categories, isLoading
                   />
                 </Badge>
               )}
+              {localFilters.location && (
+                <Badge variant="secondary" className="text-xs">
+                  Ubicación: {localFilters.location}
+                  <X 
+                    className="h-3 w-3 ml-1 cursor-pointer" 
+                    onClick={() => handleFilterChange('location', undefined)}
+                  />
+                </Badge>
+              )}
+              {localFilters.funding_stage && (
+                <Badge variant="secondary" className="text-xs">
+                  Financiación: {FUNDING_STAGES.find(s => s.value === localFilters.funding_stage)?.label || localFilters.funding_stage}
+                  <X 
+                    className="h-3 w-3 ml-1 cursor-pointer" 
+                    onClick={() => handleFilterChange('funding_stage', undefined)}
+                  />
+                </Badge>
+              )}
+              {localFilters.team_size && (
+                <Badge variant="secondary" className="text-xs">
+                  Equipo: {TEAM_SIZES.find(s => s.value === localFilters.team_size)?.label || localFilters.team_size}
+                  <X 
+                    className="h-3 w-3 ml-1 cursor-pointer" 
+                    onClick={() => handleFilterChange('team_size', undefined)}
+                  />
+                </Badge>
+              )}
               {localFilters.seeking_cofounder && (
                 <Badge variant="secondary" className="text-xs">
                   Buscando co-fundadores
@@ -264,6 +388,15 @@ export function ProjectFilters({ filters, onFiltersChange, categories, isLoading
                   <X 
                     className="h-3 w-3 ml-1 cursor-pointer" 
                     onClick={() => handleFilterChange('seeking_investors', undefined)}
+                  />
+                </Badge>
+              )}
+              {localFilters.seeking_mentors && (
+                <Badge variant="secondary" className="text-xs">
+                  Buscando mentores
+                  <X 
+                    className="h-3 w-3 ml-1 cursor-pointer" 
+                    onClick={() => handleFilterChange('seeking_mentors', undefined)}
                   />
                 </Badge>
               )}

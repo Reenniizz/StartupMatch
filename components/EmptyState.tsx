@@ -18,7 +18,7 @@ import {
 import Link from 'next/link';
 
 interface EmptyStateProps {
-  type: 'no-projects' | 'no-results' | 'no-applications' | 'no-my-projects' | 'network-error';
+  type: 'no-projects' | 'no-results' | 'no-applications' | 'no-my-projects' | 'network-error' | 'no-projects-system';
   onRetry?: () => void;
   onClearFilters?: () => void;
 }
@@ -51,6 +51,34 @@ export function EmptyState({ type, onRetry, onClearFilters }: EmptyStateProps) {
             '💡 Comparte tu idea y encuentra el equipo perfecto',
             '🤝 Conecta con co-fundadores y colaboradores',
             '📈 Recibe feedback y mejora tu proyecto'
+          ]
+        };
+
+      case 'no-projects-system':
+        return {
+          icon: <Lightbulb className="h-16 w-16 text-muted-foreground mx-auto mb-4" />,
+          title: '¡Sé el primero en crear un proyecto!',
+          description: 'Todavía no hay proyectos en el sistema. ¡Comparte tu idea y sé pionero en esta comunidad!',
+          actions: (
+            <div className="flex flex-col sm:flex-row gap-3 justify-center">
+              <Button size="lg" asChild>
+                <Link href="/projects/create">
+                  <Plus className="h-4 w-4 mr-2" />
+                  Crear el Primer Proyecto
+                </Link>
+              </Button>
+              <Button variant="outline" size="lg" asChild>
+                <Link href="/dashboard">
+                  <Rocket className="h-4 w-4 mr-2" />
+                  Ir al Dashboard
+                </Link>
+              </Button>
+            </div>
+          ),
+          tips: [
+            '🚀 Sé el pionero de esta comunidad',
+            '💡 Comparte tu idea innovadora',
+            '🌟 Inspira a otros emprendedores'
           ]
         };
 

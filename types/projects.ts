@@ -210,8 +210,14 @@ export interface ProjectSearchFilters {
   category?: string;
   industry?: string;
   stage?: string;
+  location?: string;
   seeking_cofounder?: boolean;
   seeking_investors?: boolean;
+  seeking_mentors?: boolean;
+  funding_stage?: string;
+  team_size?: string;
+  sort_by?: 'recent' | 'popular' | 'trending' | 'alphabetical' | 'views' | 'likes' | 'applications';
+  sort_order?: 'asc' | 'desc';
   page?: number;
   limit?: number;
 }
