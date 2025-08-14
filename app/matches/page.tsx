@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { useAuth } from "@/contexts/AuthProvider";
+import { usePushNotifications } from "@/hooks/usePushNotifications";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { useMatches, useConnections, type MatchUser } from "@/hooks/useMatches";
@@ -52,6 +53,7 @@ import {
 
 export default function MatchesPage() {
   const { user, loading } = useAuth();
+  const { sendTestNotification } = usePushNotifications();
   const router = useRouter();
   
   // Hooks para matches y conexiones
@@ -204,6 +206,9 @@ export default function MatchesPage() {
         // Si se aceptó la conexión, cambiar automáticamente a la pestaña de conexiones
         if (response === 'accepted') {
           setActiveTab('connections');
+          
+          // 🔔 Enviar notificación push de nuevo match
+          sendTestNotification('match');
         }
       } else {
         toast({

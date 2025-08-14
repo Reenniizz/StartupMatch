@@ -3,10 +3,12 @@ import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Heart, Users, Calendar, ExternalLink, Eye } from 'lucide-react';
+import { Heart, Users, Calendar, ExternalLink, Eye, ImageIcon } from 'lucide-react';
+import { projectStorageService, ProjectFile } from '@/lib/project-storage';
 import Link from 'next/link';
 import { formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { useState, useEffect } from 'react';
 
 interface ProjectCardProps {
   project: Project;
@@ -17,6 +19,30 @@ interface ProjectCardProps {
 }
 
 export function ProjectCard({ project, onLike, onBookmark, onClick, showActions = true }: ProjectCardProps) {
+  const [projectImages, setProjectImages] = useState<ProjectFile[]>([]);
+  const [loadingImages, setLoadingImages] = useState(false);
+
+  // Load project images
+  useEffect(() => {
+    const loadProjectImages = async () => {
+      setLoadingImages(true);
+      try {
+        const files = await projectStorageService.getProjectFiles(project.id);
+        // Filter only images
+        const images = files.filter(file => 
+          file.file_type === 'image' || file.mime_type?.startsWith('image/')
+        );
+        setProjectImages(images);
+      } catch (error) {
+        console.error('Error loading project images:', error);
+      } finally {
+        setLoadingImages(false);
+      }
+    };
+
+    loadProjectImages();
+  }, [project.id]);
+
   // Helper function to safely parse tech_stack
   const getTechStack = (): string[] => {
     try {
@@ -98,7 +124,33 @@ export function ProjectCard({ project, onLike, onBookmark, onClick, showActions 
         )}
       </CardHeader>
 
-      <CardContent className="space-y-4">
+      {/* Project Hero Image */}
+      {projectImages.length > 0 && (
+        <div className="relative aspect-video overflow-hidden rounded-lg mx-6 mb-4">
+          <img
+            src={projectImages[0].public_url || ''}
+            alt={project.title}
+            className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+            onError={(e) => {
+              (e.target as HTMLImageElement).style.display = 'none';
+            }}
+          />
+          {projectImages.length > 1 && (
+            <div className="absolute top-2 right-2 bg-black/50 text-white px-2 py-1 rounded text-xs">
+              +{projectImages.length - 1} más
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Loading state for images */}
+      {loadingImages && (
+        <div className="aspect-video overflow-hidden rounded-lg mx-6 mb-4 bg-gray-100 animate-pulse flex items-center justify-center">
+          <ImageIcon className="w-8 h-8 text-gray-400" />
+        </div>
+      )}
+
+      <CardContent className="space-y-4 pt-0">
         {/* Imagen de cover */}
         {project.cover_image_url && (
           <div className="relative h-40 w-full overflow-hidden rounded-lg">

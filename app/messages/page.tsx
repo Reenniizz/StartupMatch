@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
 import { useAuth } from "@/contexts/AuthProvider";
 import { useSocket } from "@/contexts/SocketProvider";
+import { usePushNotifications } from "@/hooks/usePushNotifications";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "@/lib/supabase-client";
@@ -92,6 +93,7 @@ interface Message {
 
 export default function MessagesPage() {
   const { user, loading } = useAuth();
+  const { sendTestNotification } = usePushNotifications();
   const router = useRouter();
   
   // Temporary: Create a mock user for testing if no real user is logged in
@@ -447,6 +449,11 @@ export default function MessagesPage() {
         scrollToBottom(true); // Forzar scroll para todos los mensajes nuevos
         playNotificationSound();
         announceToScreenReader(`Nuevo mensaje de ${messageData.sender_id === effectiveUser.id ? 'ti' : 'contacto'}: ${messageData.message}`);
+        
+        // 🔔 Enviar notificación push si el mensaje es de otra persona
+        if (messageData.sender_id !== effectiveUser.id) {
+          sendTestNotification('message');
+        }
       }
       
       // Actualizar la última message en la lista de conversaciones

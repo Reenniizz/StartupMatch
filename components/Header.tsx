@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Menu, X, Zap, User, ChevronDown, Settings, LogOut } from "lucide-react";
 import { useAppStore } from "@/store/appStore";
 import { useAuth } from "@/contexts/AuthProvider";
+import NotificationCenter from "@/components/NotificationCenter";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
@@ -102,18 +103,22 @@ const Header = () => {
           {/* Auth Buttons */}
           <div className="hidden md:flex items-center space-x-4">
             {user ? (
-              // Usuario autenticado - Dropdown de usuario
-              <div className="relative" ref={userMenuRef}>
-                <motion.button
-                  onClick={() => setShowUserMenu(!showUserMenu)}
-                  className="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-green-500 text-white px-4 py-2 rounded-lg font-medium hover:shadow-lg transform transition-all duration-200"
-                  whileHover={{ scale: 1.05, y: -2 }}
-                  whileTap={{ scale: 0.95 }}
-                >
-                  <User className="w-4 h-4" />
-                  <span>{user.user_metadata?.firstName || user.email?.split('@')[0] || 'Usuario'}</span>
-                  <ChevronDown className={`w-4 h-4 transition-transform ${showUserMenu ? 'rotate-180' : ''}`} />
-                </motion.button>
+              <>
+                {/* Notification Center */}
+                <NotificationCenter />
+                
+                {/* Usuario autenticado - Dropdown de usuario */}
+                <div className="relative" ref={userMenuRef}>
+                  <motion.button
+                    onClick={() => setShowUserMenu(!showUserMenu)}
+                    className="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-green-500 text-white px-4 py-2 rounded-lg font-medium hover:shadow-lg transform transition-all duration-200"
+                    whileHover={{ scale: 1.05, y: -2 }}
+                    whileTap={{ scale: 0.95 }}
+                  >
+                    <User className="w-4 h-4" />
+                    <span>{user.user_metadata?.firstName || user.email?.split('@')[0] || 'Usuario'}</span>
+                    <ChevronDown className={`w-4 h-4 transition-transform ${showUserMenu ? 'rotate-180' : ''}`} />
+                  </motion.button>
 
                 {/* Dropdown Menu */}
                 <AnimatePresence>
@@ -160,7 +165,8 @@ const Header = () => {
                     </motion.div>
                   )}
                 </AnimatePresence>
-              </div>
+                </div>
+              </>
             ) : (
               // Usuario no autenticado - Mostrar botones de login y registro
               <>

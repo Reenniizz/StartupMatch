@@ -1,13 +1,16 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { FileUpload } from '@/components/FileUpload';
+import { projectStorageService, ProjectFile } from '@/lib/project-storage';
 import { Project } from '@/types/projects';
+import { useAuth } from '@/contexts/AuthProvider';
 import { 
   Heart, 
   Users, 
@@ -19,7 +22,11 @@ import {
   Eye,
   Bookmark,
   MessageSquare,
-  Star
+  Star,
+  Upload,
+  Image,
+  FileText,
+  Download
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -42,6 +49,55 @@ export function ProjectModal({
   onBookmark, 
   onApply 
 }: ProjectModalProps) {
+  const { user } = useAuth();
+  const [projectFiles, setProjectFiles] = useState<ProjectFile[]>([]);
+  const [loadingFiles, setLoadingFiles] = useState(false);
+  const [showUpload, setShowUpload] = useState(false);
+  
+  // Check if current user is the project owner
+  const isOwner = user?.id === project?.creator_id;
+  
+  // Load project files when modal opens
+  useEffect(() => {
+    if (isOpen && project) {
+      loadProjectFiles();
+    }
+  }, [isOpen, project]);
+
+  const loadProjectFiles = async () => {
+    if (!project) return;
+    
+    setLoadingFiles(true);
+    try {
+      const files = await projectStorageService.getProjectFiles(project.id);
+      setProjectFiles(files);
+    } catch (error) {
+      console.error('Error loading project files:', error);
+    } finally {
+      setLoadingFiles(false);
+    }
+  };
+
+  const handleFileUpload = (file: ProjectFile) => {
+    setProjectFiles(prev => [file, ...prev]);
+    setShowUpload(false);
+  };
+
+  const handleFileUploadError = (error: string) => {
+    console.error('Upload error:', error);
+  };
+
+  const deleteProjectFile = async (fileId: string) => {
+    try {
+      const result = await projectStorageService.deleteFile(fileId);
+      if (result.success) {
+        setProjectFiles(prev => prev.filter(file => file.id !== fileId));
+      }
+    } catch (error) {
+      console.error('Error deleting file:', error);
+    }
+  };
+
   if (!project) return null;
 
   const handleLike = () => {
@@ -289,6 +345,88 @@ export function ProjectModal({
                 </div>
               </>
             )}
+
+            {/* Project Files Section */}
+            <Separator />
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-semibold">Archivos del Proyecto</h3>
+                {isOwner && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowUpload(!showUpload)}
+                  >
+                    <Upload className="h-4 w-4 mr-1" />
+                    Subir archivo
+                  </Button>
+                )}
+              </div>
+
+              {/* Upload Section */}
+              {showUpload && isOwner && (
+                <div className="border rounded-lg p-4 bg-gray-50">
+                  <FileUpload
+                    projectId={project.id}
+                    onUploadComplete={handleFileUpload}
+                    onUploadError={handleFileUploadError}
+                    maxFiles={5}
+                  />
+                </div>
+              )}
+
+              {/* Files List */}
+              {loadingFiles ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  Cargando archivos...
+                </div>
+              ) : projectFiles.length > 0 ? (
+                <div className="grid grid-cols-1 gap-3">
+                  {projectFiles.map((file) => (
+                    <div key={file.id} className="flex items-center justify-between p-3 border rounded-lg bg-white">
+                      <div className="flex items-center gap-3">
+                        {file.file_type === 'image' ? (
+                          <Image className="h-8 w-8 text-blue-600" />
+                        ) : (
+                          <FileText className="h-8 w-8 text-gray-600" />
+                        )}
+                        <div>
+                          <p className="font-medium text-sm">{file.file_name}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {Math.round(file.file_size / 1024)} KB • {new Date(file.created_at).toLocaleDateString()}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {file.public_url && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => window.open(file.public_url, '_blank')}
+                          >
+                            <Download className="h-4 w-4" />
+                          </Button>
+                        )}
+                        {isOwner && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => deleteProjectFile(file.id)}
+                            className="text-red-600 hover:text-red-700"
+                          >
+                            ×
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8 text-muted-foreground">
+                  {isOwner ? 'Sube archivos para mostrar a los visitantes' : 'No hay archivos disponibles'}
+                </div>
+              )}
+            </div>
 
             {/* Tags */}
             {project.tags && project.tags.length > 0 && (
