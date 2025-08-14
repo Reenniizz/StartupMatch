@@ -143,6 +143,12 @@ const Header = () => {
                           🧪 Test Push
                         </div>
                       </Link>
+                      <Link href="/test-storage">
+                        <div className="flex items-center gap-2 px-4 py-2 text-green-700 hover:bg-green-50 cursor-pointer">
+                          <Zap className="w-4 h-4" />
+                          🗂️ Test Storage
+                        </div>
+                      </Link>
                       <hr className="my-2" />
                       <button
                         onClick={handleLogout}
@@ -225,6 +231,12 @@ const Header = () => {
                       <button className="flex items-center gap-2 text-gray-700 hover:text-blue-600 font-medium py-2 text-left w-full">
                         <Settings className="w-4 h-4" />
                         Configuración
+                      </button>
+                    </Link>
+                    <Link href="/test-storage">
+                      <button className="flex items-center gap-2 text-green-600 hover:text-green-700 font-medium py-2 text-left w-full">
+                        <Zap className="w-4 h-4" />
+                        🗂️ Test Storage
                       </button>
                     </Link>
                     <button
