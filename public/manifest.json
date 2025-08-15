@@ -1,11 +1,14 @@
 {
-  "name": "StartupMatch",
+  "name": "StartupMatch - Matchmaking para Emprendedores",
   "short_name": "StartupMatch",
-  "description": "Conecta emprendedores, encuentra tu cofundador perfecto",
-  "start_url": "/dashboard",
+  "description": "Encuentra cofundadores perfectos para tu startup con IA",
+  "start_url": "/",
+  "scope": "/",
   "display": "standalone",
   "background_color": "#ffffff",
-  "theme_color": "#3b82f6",
+  "theme_color": "#6366f1",
+  "orientation": "portrait-primary",
+  "lang": "es",
   "icons": [
     {
       "src": "/icon-192x192.png",
@@ -19,5 +22,43 @@
       "type": "image/png",
       "purpose": "any maskable"
     }
-  ]
+  ],
+  "categories": [
+    "business",
+    "networking",
+    "productivity",
+    "social"
+  ],
+  "shortcuts": [
+    {
+      "name": "Dashboard",
+      "short_name": "Dashboard",
+      "description": "Ver estadísticas y métricas",
+      "url": "/dashboard",
+      "icons": [{ "src": "/icon-192x192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Proyectos",
+      "short_name": "Proyectos", 
+      "description": "Buscar y crear proyectos",
+      "url": "/projects",
+      "icons": [{ "src": "/icon-192x192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Matches",
+      "short_name": "Matches",
+      "description": "Ver matches y conexiones", 
+      "url": "/matches",
+      "icons": [{ "src": "/icon-192x192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Mensajes",
+      "short_name": "Mensajes",
+      "description": "Chat con otros emprendedores",
+      "url": "/messages",
+      "icons": [{ "src": "/icon-192x192.png", "sizes": "192x192" }]
+    }
+  ],
+  "related_applications": [],
+  "prefer_related_applications": false
 }

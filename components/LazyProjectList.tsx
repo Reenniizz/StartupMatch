@@ -5,7 +5,7 @@
 
 'use client';
 
-import React, { memo } from 'react';
+import React, { memo, useRef } from 'react';
 import { ProjectCard } from '@/components/ProjectCard';
 import { LoadingStates } from '@/components/ui/loading';
 import { useLazyLoad } from '@/hooks/useLazyLoading';
@@ -27,17 +27,18 @@ const OptimizedProjectCard = memo<{
   onProjectClick: (project: Project) => void;
   onProjectLike: (projectId: string) => void;
 }>(({ project, onProjectClick, onProjectLike }) => {
-  const { ref, shouldLoad } = useLazyLoad(0.1, '200px');
+  const cardRef = useRef<HTMLDivElement>(null);
+  const { shouldLoad } = useLazyLoad(0.1, '200px');
 
   // OPTIMIZATION 1: Solo renderizar cuando sea visible en viewport
   if (!shouldLoad) {
     return (
-      <div ref={ref} className="h-64 w-full bg-muted animate-pulse rounded-lg" />
+      <div ref={cardRef} className="h-64 w-full bg-muted animate-pulse rounded-lg" />
     );
   }
 
   return (
-    <div ref={ref}>
+    <div ref={cardRef}>
       <ProjectCard
         project={project}
         onClick={onProjectClick}
@@ -85,7 +86,8 @@ export const OptimizedProjectList = memo<OptimizedProjectListProps>(({
   onProjectLike,
   className = '',
 }) => {
-  const { ref: containerRef, shouldLoad: shouldLoadContainer } = useLazyLoad(0, '50px');
+  const containerRef = useRef<HTMLDivElement>(null);
+  const { shouldLoad: shouldLoadContainer } = useLazyLoad(0, '50px');
 
   return (
     <div ref={containerRef} className={className}>
