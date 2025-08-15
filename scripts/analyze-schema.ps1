@@ -6,7 +6,9 @@ param(
     [string]$Command = "help"
 )
 
-$SchemaFile = "complete_schema.sql"
+# Obtener directorio del script y construir path al archivo SQL
+$ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+$SchemaFile = Join-Path (Split-Path -Parent $ScriptDir) "sql\complete_schema.sql"
 
 function Show-Help {
     Write-Host "SCHEMA ANALYZER - StartupMatch" -ForegroundColor Cyan
