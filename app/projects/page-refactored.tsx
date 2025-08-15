@@ -27,7 +27,7 @@ export default function ProjectsPage() {
       <div className="container mx-auto p-6 space-y-8">
         <ProjectsHeader />
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+        <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as "discover" | "my-projects" | "applications")} className="space-y-6">
           <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="discover" className="flex items-center gap-2">
               <Rocket className="h-4 w-4" />
