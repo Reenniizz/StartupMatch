@@ -1,12 +1,17 @@
 "use client";
 
-import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { useAuth } from '@/contexts/AuthProvider';
 
 interface SocketContextType {
   socket: Socket | null;
   isConnected: boolean;
+  connectionStats: {
+    latency: number;
+    reconnectCount: number;
+    isHealthy: boolean;
+  };
   sendMessage: (data: {
     conversationId: string;
     message: string;
@@ -40,6 +45,70 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({ children }) => {
   const [isConnected, setIsConnected] = useState(false);
   const [onlineUsers, setOnlineUsers] = useState<string[]>([]);
   const [typingUsers, setTypingUsers] = useState<{ [key: string]: boolean }>({});
+  
+  // Heartbeat system state
+  const [connectionStats, setConnectionStats] = useState({
+    latency: 0,
+    reconnectCount: 0,
+    isHealthy: true
+  });
+  
+  const heartbeatIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const lastPingTime = useRef<number>(0);
+
+  // Inicializar heartbeat system
+  const startHeartbeat = useCallback((socketInstance: Socket) => {
+    if (heartbeatIntervalRef.current) {
+      clearInterval(heartbeatIntervalRef.current);
+    }
+
+    console.log('💓 Starting heartbeat system');
+
+    // Heartbeat cada 30 segundos
+    heartbeatIntervalRef.current = setInterval(() => {
+      if (socketInstance.connected) {
+        lastPingTime.current = Date.now();
+        socketInstance.emit('heartbeat', { userId: user?.id });
+      }
+    }, 30000);
+
+    // Responder a pings del servidor
+    socketInstance.on('heartbeat-ping', (data) => {
+      console.log('💓 Received server ping, sending pong');
+      socketInstance.emit('heartbeat-pong', {
+        timestamp: data.timestamp,
+        clientTime: Date.now()
+      });
+    });
+
+    // Respuesta del servidor a nuestro heartbeat
+    socketInstance.on('heartbeat-response', (data) => {
+      const latency = Date.now() - lastPingTime.current;
+      console.log(`💓 Heartbeat response: ${latency}ms`, data);
+      
+      setConnectionStats(prev => ({
+        ...prev,
+        latency,
+        isHealthy: latency < 1000 // Healthy if < 1 second
+      }));
+    });
+  }, [user?.id]);
+
+  // Detener heartbeat system
+  const stopHeartbeat = useCallback(() => {
+    console.log('💀 Stopping heartbeat system');
+    
+    if (heartbeatIntervalRef.current) {
+      clearInterval(heartbeatIntervalRef.current);
+      heartbeatIntervalRef.current = null;
+    }
+    
+    setConnectionStats({
+      latency: 0,
+      reconnectCount: 0,
+      isHealthy: false
+    });
+  }, []);
 
   useEffect(() => {
     if (!user?.id) {
@@ -104,6 +173,9 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({ children }) => {
           console.log('🔗 Socket conectado:', socketInstance.id);
           setIsConnected(true);
           
+          // Inicializar heartbeat system
+          startHeartbeat(socketInstance);
+          
           // Join personal room
           console.log('👤 Enviando join-user con ID:', user.id);
           socketInstance.emit('join-user', user.id);
@@ -112,11 +184,22 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({ children }) => {
         socketInstance.on('disconnect', (reason) => {
           console.log('🔌 Socket desconectado. Razón:', reason);
           setIsConnected(false);
+          stopHeartbeat();
         });
 
         socketInstance.on('reconnect', (attempt) => {
           console.log('🔄 Socket reconectado después de', attempt, 'intentos');
           setIsConnected(true);
+          
+          // Actualizar contador de reconexiones
+          setConnectionStats(prev => ({
+            ...prev,
+            reconnectCount: prev.reconnectCount + 1
+          }));
+          
+          // Reinicializar heartbeat
+          startHeartbeat(socketInstance);
+          
           // Re-join user room after reconnection
           socketInstance.emit('join-user', user.id);
         });
@@ -188,10 +271,11 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({ children }) => {
     return () => {
       if (socket) {
         console.log('🧹 Limpiando Socket.IO...');
+        stopHeartbeat();
         socket.disconnect();
       }
     };
-  }, [user?.id]); // Solo depende del user.id, no del socket
+  }, [user?.id, startHeartbeat, stopHeartbeat]); // Solo depende del user.id, no del socket
 
   const sendMessage = useCallback((data: {
     conversationId: string;
@@ -252,6 +336,7 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({ children }) => {
   const value: SocketContextType = {
     socket,
     isConnected,
+    connectionStats,
     sendMessage,
     joinConversation,
     startTyping,

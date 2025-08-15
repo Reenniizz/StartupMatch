@@ -89,6 +89,8 @@ interface Message {
   message: string;
   timestamp: string;
   status: 'sending' | 'sent' | 'delivered' | 'read' | 'error';
+  retryable?: boolean;
+  sanitized?: boolean;
 }
 
 export default function MessagesPage() {
@@ -134,8 +136,10 @@ export default function MessagesPage() {
     typingUsers,
   } = useSocket();
 
-  // Estados para funcionalidades en tiempo real
+  // Estados para funcionalidades en tiempo real mejoradas
   const [typingTimeout, setTypingTimeout] = useState<NodeJS.Timeout | null>(null);
+  const [offlineMessageQueue, setOfflineMessageQueue] = useState<Message[]>([]);
+  const [messageRetryQueue, setMessageRetryQueue] = useState<Set<number | string>>(new Set());
 
   // Estados de Accesibilidad y UI Mejorada
   const [accessibilitySettings, setAccessibilitySettings] = useState({
@@ -410,13 +414,84 @@ export default function MessagesPage() {
     }
   };
 
-  // Redirect if not authenticated (bypass for development)
+  // Cargar queue offline al inicio
   useEffect(() => {
-    if (!loading && !effectiveUser) {
-      // For now, we're using effectiveUser so this won't trigger
-      // router.push("/login");
+    const savedQueue = localStorage.getItem('offlineMessages');
+    if (savedQueue) {
+      try {
+        const parsedQueue = JSON.parse(savedQueue);
+        setOfflineMessageQueue(parsedQueue);
+        console.log('📱 Cargada queue offline:', parsedQueue.length, 'mensajes');
+      } catch (error) {
+        console.error('❌ Error cargando queue offline:', error);
+        localStorage.removeItem('offlineMessages');
+      }
     }
-  }, [effectiveUser, loading, router]);
+  }, []);
+
+  // Procesar queue offline cuando se conecte
+  useEffect(() => {
+    if (socket && isConnected && offlineMessageQueue.length > 0) {
+      console.log('🔄 Procesando queue offline:', offlineMessageQueue.length, 'mensajes');
+      
+      offlineMessageQueue.forEach(queuedMessage => {
+        if (typeof activeConversation === 'string') {
+          socketSendMessage({
+            conversationId: activeConversation,
+            message: queuedMessage.message,
+            tempId: queuedMessage.id as number,
+            conversationType: 'individual'
+          });
+        }
+      });
+      
+      // Limpiar queue
+      setOfflineMessageQueue([]);
+      localStorage.removeItem('offlineMessages');
+    }
+  }, [socket, isConnected, offlineMessageQueue, activeConversation, socketSendMessage]);
+
+  // Queue de mensajes offline
+  const queueOfflineMessage = useCallback((messageData: Message) => {
+    const queuedMessage = {
+      ...messageData,
+      queuedAt: Date.now()
+    };
+    
+    setOfflineMessageQueue(prev => {
+      const newQueue = [...prev, queuedMessage];
+      localStorage.setItem('offlineMessages', JSON.stringify(newQueue));
+      return newQueue;
+    });
+    
+    console.log('📱 Mensaje agregado a queue offline:', queuedMessage.id);
+  }, []);
+
+  // Retry de mensajes con error
+  const retryMessage = useCallback((messageId: number | string) => {
+    const messageToRetry = messages.find(msg => msg.id === messageId);
+    if (!messageToRetry || !messageToRetry.retryable) return;
+
+    console.log('🔄 Reintentando mensaje:', messageId);
+    
+    // Marcar como sending de nuevo
+    setMessages(prev => prev.map(msg => 
+      msg.id === messageId ? { ...msg, status: 'sending' as const } : msg
+    ));
+
+    // Intentar enviar de nuevo
+    if (socket && isConnected && typeof activeConversation === 'string') {
+      socketSendMessage({
+        conversationId: activeConversation,
+        message: messageToRetry.message,
+        tempId: messageId as number,
+        conversationType: 'individual'
+      });
+    } else {
+      // Si no hay conexión, agregar a queue offline
+      queueOfflineMessage(messageToRetry);
+    }
+  }, [messages, socket, isConnected, activeConversation, socketSendMessage, queueOfflineMessage]);
 
   // Cargar conversaciones reales cuando el usuario esté disponible
   useEffect(() => {
@@ -497,49 +572,99 @@ export default function MessagesPage() {
       );
     };
 
-    // Listener para confirmación de mensaje enviado
+    // Listener para confirmación de mensaje enviado mejorado
     const handleMessageSent = (data: any) => {
       console.log('✅ Mensaje enviado confirmado:', data);
-      // Actualizar el status del mensaje temporal a 'delivered'
+      
+      // Actualizar el mensaje temporal con datos reales
       setMessages(prevMessages => 
         prevMessages.map(msg => 
           msg.id === data.tempId
-            ? { ...msg, id: data.messageId, status: 'delivered' }
+            ? { 
+                ...msg, 
+                id: data.messageId, 
+                status: 'sent' as const,
+                sanitized: data.sanitized 
+              }
             : msg
         )
       );
       
-      announceToScreenReader('Mensaje enviado correctamente');
+      // Remover de retry queue si estaba ahí
+      setMessageRetryQueue(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(data.tempId);
+        return newSet;
+      });
+      
+      const statusText = data.sanitized ? 
+        'Mensaje enviado (contenido modificado por seguridad)' : 
+        'Mensaje enviado correctamente';
+        
+      announceToScreenReader(statusText);
     };
 
-    // Listener para errores de mensaje
-    const handleMessageError = (error: any) => {
-      console.error('❌ Error enviando mensaje:', error);
+    // Listener para errores de mensaje mejorado
+    const handleMessageError = (data: any) => {
+      console.error('❌ Error enviando mensaje:', data);
+      
       // Actualizar status a error para el mensaje con tempId
       setMessages(prevMessages => 
         prevMessages.map(msg => 
-          msg.id === error.tempId
-            ? { ...msg, status: 'error' }
+          msg.id === data.tempId
+            ? { 
+                ...msg, 
+                status: 'error' as const,
+                retryable: data.retryable 
+              }
             : msg
         )
       );
       
-      announceToScreenReader(`Error al enviar mensaje: ${error.error || 'Error desconocido'}`);
+      // Agregar a retry queue si es retryable
+      if (data.retryable) {
+        setMessageRetryQueue(prev => new Set(prev).add(data.tempId));
+      }
       
-      // Mostrar notificación de error al usuario
-      alert(`Error al enviar mensaje: ${error.error || 'Error desconocido'}`);
+      announceToScreenReader(`Error al enviar mensaje: ${data.error}`);
+      
+      // Mostrar notificación de error con opción de retry
+      if (data.retryable) {
+        console.log('🔄 Mensaje marcado como retryable:', data.tempId);
+      } else {
+        alert(`Error permanente: ${data.error}`);
+      }
     };
 
-    // Registrar listeners
+    // Listener para actualizaciones de estado de mensaje
+    const handleMessageStatusUpdate = (data: any) => {
+      console.log('📊 Actualización de estado de mensaje:', data);
+      
+      setMessages(prevMessages => 
+        prevMessages.map(msg => 
+          msg.id === data.messageId
+            ? { ...msg, status: data.status }
+            : msg
+        )
+      );
+      
+      if (data.status === 'read') {
+        announceToScreenReader('Tu mensaje fue leído');
+      }
+    };
+
+    // Registrar listeners mejorados
     socket.on('new-message', handleNewMessage);
     socket.on('message-sent', handleMessageSent);
     socket.on('message-error', handleMessageError);
+    socket.on('message-status-update', handleMessageStatusUpdate);
 
     // Cleanup
     return () => {
       socket.off('new-message', handleNewMessage);
       socket.off('message-sent', handleMessageSent);
       socket.off('message-error', handleMessageError);
+      socket.off('message-status-update', handleMessageStatusUpdate);
     };
   }, [socket, effectiveUser?.id, activeConversation, scrollToBottom, playNotificationSound, announceToScreenReader]);
 
@@ -730,6 +855,12 @@ export default function MessagesPage() {
     const messageText = newMessage.trim();
     const tempId = Date.now(); // ID temporal para tracking
 
+    // Validación del lado del cliente
+    if (messageText.length > 5000) {
+      alert('El mensaje es demasiado largo. Máximo 5000 caracteres.');
+      return;
+    }
+
     // Anunciar envío para lectores de pantalla
     announceToScreenReader(`Enviando mensaje: ${messageText.substring(0, 50)}${messageText.length > 50 ? '...' : ''}`);
 
@@ -754,7 +885,7 @@ export default function MessagesPage() {
         scrollToBottom(true);
       }, 50);
 
-      // Enviar via Socket.IO (se guardará en DB automáticamente)
+      // Enviar via Socket.IO si está conectado
       if (socket && isConnected) {
         socketSendMessage({
           conversationId: activeConversation,
@@ -763,9 +894,14 @@ export default function MessagesPage() {
           conversationType: 'individual'
         });
       } else {
-        console.warn('⚠️ Socket no conectado, usando fallback directo a API');
-        // Fallback: enviar directamente a la API
-        sendMessageViaAPI(activeConversation, messageText, tempId);
+        console.warn('⚠️ Socket no conectado, agregando a queue offline');
+        // Si no hay conexión, agregar a queue offline
+        queueOfflineMessage(tempMessage);
+        
+        // Actualizar status a pending
+        setMessages(prev => prev.map(msg => 
+          msg.id === tempId ? { ...msg, status: 'error' as const, retryable: true } : msg
+        ));
       }
 
     } else {
@@ -878,12 +1014,35 @@ export default function MessagesPage() {
     }
   };
 
-  const getStatusIcon = (status: string) => {
+  const getStatusIcon = (status: string, messageId?: number | string) => {
+    const isRetryable = messageId && messageRetryQueue.has(messageId);
+    
     switch (status) {
-      case "sent": return <Check className="h-3 w-3 text-gray-400" />;
-      case "delivered": return <CheckCheck className="h-3 w-3 text-gray-400" />;
-      case "read": return <CheckCheck className="h-3 w-3 text-blue-500" />;
-      default: return <Clock className="h-3 w-3 text-gray-400" />;
+      case "sending": 
+        return <Clock className="h-3 w-3 text-gray-400 animate-pulse" />;
+      case "sent": 
+        return <Check className="h-3 w-3 text-gray-400" />;
+      case "delivered": 
+        return <CheckCheck className="h-3 w-3 text-gray-400" />;
+      case "read": 
+        return <CheckCheck className="h-3 w-3 text-blue-500" />;
+      case "error":
+        return (
+          <div className="flex items-center space-x-1">
+            <X className="h-3 w-3 text-red-500" />
+            {isRetryable && (
+              <button
+                onClick={() => messageId && retryMessage(messageId)}
+                className="text-xs text-blue-500 hover:text-blue-700 underline"
+                title="Reintentar envío"
+              >
+                Retry
+              </button>
+            )}
+          </div>
+        );
+      default: 
+        return <Clock className="h-3 w-3 text-gray-400" />;
     }
   };
 
