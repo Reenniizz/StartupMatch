@@ -1,16 +1,13 @@
-// pages/api/create-test-conversation.js
+// app/api/create-test-conversation/route.ts - Migrado desde Pages Router
+import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
 const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-export default async function handler(req, res) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
-
+export async function POST(request: NextRequest) {
   try {
     const user1Id = 'a1089270-efec-4c4b-a97f-22bb0cd2f313';
     const user2Id = '3ba6c41a-1f33-4832-97e4-774e523fe001';
@@ -26,7 +23,7 @@ export default async function handler(req, res) {
 
     if (existingConv) {
       console.log('✅ API: Conversación ya existe:', existingConv.id);
-      return res.status(200).json({ 
+      return NextResponse.json({ 
         success: true, 
         message: 'Conversación ya existe',
         conversationId: existingConv.id,
@@ -46,7 +43,7 @@ export default async function handler(req, res) {
 
     if (error) {
       console.error('❌ API: Error creando conversación:', error);
-      return res.status(500).json({ error: error.message });
+      return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
     console.log('✅ API: Conversación creada:', newConv.id);
@@ -91,7 +88,7 @@ export default async function handler(req, res) {
       console.log('✅ API: Mensajes de prueba creados:', messages?.length);
     }
 
-    res.status(200).json({ 
+    return NextResponse.json({ 
       success: true, 
       message: 'Conversación y mensajes creados exitosamente',
       conversationId: newConv.id,
@@ -101,6 +98,6 @@ export default async function handler(req, res) {
     
   } catch (error) {
     console.error('❌ API: Error general:', error);
-    res.status(500).json({ error: error.message });
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

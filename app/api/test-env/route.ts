@@ -1,5 +1,7 @@
-// pages/api/test-env.js
-export default function handler(req, res) {
+// app/api/test-env/route.ts - Migrado desde Pages Router
+import { NextResponse } from 'next/server';
+
+export async function GET() {
   const envStatus = {
     NEXT_PUBLIC_SUPABASE_URL: !!process.env.NEXT_PUBLIC_SUPABASE_URL ? 'Configurado' : 'No configurado',
     NEXT_PUBLIC_SUPABASE_ANON_KEY: !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ? 'Configurado' : 'No configurado',
@@ -12,5 +14,5 @@ export default function handler(req, res) {
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY.substring(0, 20) + '...' : 'No disponible',
   };
 
-  res.status(200).json(envStatus);
+  return NextResponse.json(envStatus);
 }

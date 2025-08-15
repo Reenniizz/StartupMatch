@@ -3,12 +3,27 @@
  */
 
 import { z } from 'zod';
+import { NextRequest } from 'next/server';
+import { securityLogger } from './logger';
 
-// XSS Protection
+// Enhanced XSS Protection
 export function sanitizeHtml(input: string): string {
   if (typeof input !== 'string') return '';
   
   return input
+    // Remove script tags completely
+    .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+    // Remove javascript: URLs
+    .replace(/javascript:/gi, '')
+    // Remove on* event handlers
+    .replace(/\s*on\w+\s*=\s*"[^"]*"/gi, '')
+    .replace(/\s*on\w+\s*=\s*'[^']*'/gi, '')
+    // Remove data: URLs (except safe image types)
+    .replace(/data:(?!image\/(png|jpg|jpeg|gif|webp|svg))[^;]*;[^,]*,/gi, '')
+    // Remove dangerous functions
+    .replace(/eval\s*\(/gi, '')
+    .replace(/Function\s*\(/gi, '')
+    // Standard HTML encoding
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
@@ -18,6 +33,22 @@ export function sanitizeHtml(input: string): string {
 }
 
 // SQL Injection Protection
+export function sanitizeSql(input: string): string {
+  if (typeof input !== 'string') return '';
+  
+  return input
+    // Remove SQL keywords and dangerous patterns
+    .replace(/(\b(SELECT|INSERT|UPDATE|DELETE|DROP|CREATE|ALTER|EXEC|UNION|SCRIPT)\b)/gi, '')
+    .replace(/('|(\\')|(--)|(\;)|(\|)|(\*)|(%)|(\+))/g, '')
+    // Remove SQL comments
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/--.*/g, '')
+    // Remove common injection patterns
+    .replace(/(\bOR\b.*\b=\b.*\b=\b)|(\bAND\b.*\b=\b.*\b=\b)/gi, '')
+    .trim();
+}
+
+// General Input Sanitization
 export function sanitizeInput(input: string): string {
   if (typeof input !== 'string') return '';
   
@@ -26,6 +57,122 @@ export function sanitizeInput(input: string): string {
     .replace(/[<>]/g, '') // Remove potential HTML tags
     .replace(/javascript:/gi, '') // Remove javascript: protocol
     .replace(/on\w+\s*=/gi, ''); // Remove event handlers
+}
+
+// Validation interface
+export interface ValidationRule {
+  required?: boolean;
+  minLength?: number;
+  maxLength?: number;
+  pattern?: RegExp;
+  type?: 'string' | 'number' | 'email' | 'url' | 'uuid';
+  sanitize?: boolean;
+  custom?: (value: any) => boolean | string;
+}
+
+export interface ValidationSchema {
+  [key: string]: ValidationRule;
+}
+
+// Request validation function
+export function validateRequest(
+  data: Record<string, any>,
+  schema: ValidationSchema
+): {
+  isValid: boolean;
+  errors: Record<string, string[]>;
+  sanitizedData: Record<string, any>;
+} {
+  const errors: Record<string, string[]> = {};
+  const sanitizedData: Record<string, any> = {};
+  
+  for (const [field, rule] of Object.entries(schema)) {
+    const value = data[field];
+    const fieldErrors: string[] = [];
+    
+    // Required validation
+    if (rule.required && (value === undefined || value === null || value === '')) {
+      fieldErrors.push(`${field} is required`);
+      continue;
+    }
+    
+    // Skip if empty and not required
+    if (!rule.required && (value === undefined || value === null || value === '')) {
+      sanitizedData[field] = value;
+      continue;
+    }
+    
+    let processedValue = value;
+    
+    // Type validation
+    if (rule.type) {
+      switch (rule.type) {
+        case 'email':
+          const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+          if (!emailPattern.test(value)) {
+            fieldErrors.push(`${field} must be a valid email address`);
+            continue;
+          }
+          break;
+          
+        case 'uuid':
+          const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+          if (!uuidPattern.test(value)) {
+            fieldErrors.push(`${field} must be a valid UUID`);
+            continue;
+          }
+          break;
+          
+        case 'url':
+          try {
+            new URL(value);
+          } catch {
+            fieldErrors.push(`${field} must be a valid URL`);
+            continue;
+          }
+          break;
+      }
+    }
+    
+    // Length validation
+    if (rule.minLength && processedValue.length < rule.minLength) {
+      fieldErrors.push(`${field} must be at least ${rule.minLength} characters long`);
+    }
+    
+    if (rule.maxLength && processedValue.length > rule.maxLength) {
+      fieldErrors.push(`${field} must be no more than ${rule.maxLength} characters long`);
+    }
+    
+    // Pattern validation
+    if (rule.pattern && !rule.pattern.test(processedValue)) {
+      fieldErrors.push(`${field} does not match the required format`);
+    }
+    
+    // Custom validation
+    if (rule.custom) {
+      const customResult = rule.custom(processedValue);
+      if (customResult !== true) {
+        fieldErrors.push(typeof customResult === 'string' ? customResult : `${field} failed custom validation`);
+      }
+    }
+    
+    // Sanitization
+    if (rule.sanitize && typeof processedValue === 'string') {
+      processedValue = sanitizeHtml(processedValue);
+    }
+    
+    if (fieldErrors.length > 0) {
+      errors[field] = fieldErrors;
+    } else {
+      sanitizedData[field] = processedValue;
+    }
+  }
+  
+  return {
+    isValid: Object.keys(errors).length === 0,
+    errors,
+    sanitizedData
+  };
 }
 
 // Password Security Validation
