@@ -70,6 +70,12 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({ children }) => {
           socket.disconnect();
         }
 
+        // Obtener el token de sesión de Supabase para autenticación
+        const { supabase } = await import('@/lib/supabase-client');
+        const { data: { session } } = await supabase.auth.getSession();
+
+        console.log('🔑 Token de sesión obtenido:', session?.access_token ? 'Sí' : 'No');
+
         // Conectar cliente al servidor Socket.IO personalizado
         const socketInstance = io('http://localhost:3000', {
           path: '/socket.io',
@@ -79,6 +85,14 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({ children }) => {
           reconnectionDelay: 1000,
           reconnectionAttempts: 5,
           forceNew: true,
+          // Enviar el token de autenticación en la conexión
+          auth: {
+            token: session?.access_token,
+            userId: user.id
+          },
+          query: {
+            userId: user.id
+          }
         });
 
         console.log('🔗 Cliente Socket.IO inicializado');

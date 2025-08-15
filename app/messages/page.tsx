@@ -333,35 +333,39 @@ export default function MessagesPage() {
     console.log('💬 Cargando mensajes para:', conversationId);
 
     try {
-      const { data, error } = await supabase
-        .from('private_messages')
-        .select('id, message, created_at, sender_id')
-        .eq('conversation_id', conversationId)
-        .order('created_at', { ascending: true });
+      // Usar el API endpoint para cargar mensajes
+      const response = await fetch(`/api/private-messages?conversationId=${conversationId}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
 
-      if (error) {
-        console.error('❌ Error cargando mensajes:', error.message);
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('❌ Error en API:', errorData.error);
         return;
       }
 
-      console.log('✅ Mensajes encontrados:', data?.length || 0);
+      const messagesData = await response.json();
+      console.log('✅ Mensajes cargados desde API:', messagesData.length);
 
-      if (data && data.length > 0) {
-        const realMessages: Message[] = data.map((msg: any) => ({
-          id: msg.id,
-          sender: msg.sender_id === user?.id ? 'me' as const : 'other' as const,
-          message: msg.message,
-          timestamp: formatMadridTime(msg.created_at),
-          status: 'delivered' as const
-        }));
-
-        setMessages(realMessages);
+      if (messagesData && messagesData.length > 0) {
+        // Los mensajes ya vienen formateados desde el API
+        setMessages(messagesData);
+        
+        // Forzar scroll al cargar mensajes
+        setTimeout(() => {
+          scrollToBottom(true);
+        }, 100);
       } else {
         // Si no hay mensajes, dejar array vacío
         setMessages([]);
+        console.log('📝 No hay mensajes previos en esta conversación');
       }
     } catch (error) {
       console.error('❌ Error general cargando mensajes:', error);
+      setMessages([]); // Limpiar en caso de error
     }
   };
 
@@ -442,21 +446,44 @@ export default function MessagesPage() {
           status: 'delivered' as const
         };
         
-        setMessages(prevMessages => [...prevMessages, newMsg]);
+        // Evitar duplicados: verificar si el mensaje ya existe
+        setMessages(prevMessages => {
+          const messageExists = prevMessages.find(msg => 
+            msg.id === newMsg.id || 
+            (msg.status === 'sending' && messageData.tempId && msg.id === messageData.tempId)
+          );
+          
+          if (messageExists) {
+            // Si existe un mensaje temporal, actualizarlo con los datos reales
+            if (messageExists.status === 'sending' && messageData.tempId) {
+              return prevMessages.map(msg => 
+                msg.id === messageData.tempId ? newMsg : msg
+              );
+            }
+            // Si ya existe el mensaje final, no agregar duplicado
+            return prevMessages;
+          }
+          
+          // Es un mensaje nuevo, agregarlo
+          return [...prevMessages, newMsg];
+        });
         
         // Mejoras de UX y Accesibilidad para mensajes nuevos
         // Siempre forzar scroll para mensajes nuevos (tanto propios como de otros)
         scrollToBottom(true); // Forzar scroll para todos los mensajes nuevos
-        playNotificationSound();
-        announceToScreenReader(`Nuevo mensaje de ${messageData.sender_id === effectiveUser.id ? 'ti' : 'contacto'}: ${messageData.message}`);
         
-        // 🔔 Enviar notificación push si el mensaje es de otra persona
+        // Solo notificaciones y sonidos para mensajes de otros usuarios
         if (messageData.sender_id !== effectiveUser.id) {
+          playNotificationSound();
+          announceToScreenReader(`Nuevo mensaje de contacto: ${messageData.message}`);
+          // 🔔 Enviar notificación push si el mensaje es de otra persona
           sendTestNotification('message');
+        } else {
+          announceToScreenReader(`Tu mensaje fue enviado: ${messageData.message}`);
         }
       }
       
-      // Actualizar la última message en la lista de conversaciones
+      // Actualizar la última mensaje en la lista de conversaciones
       setConversations(prevConversations => 
         prevConversations.map(conv => 
           conv.id === messageData.conversation_id
@@ -473,11 +500,11 @@ export default function MessagesPage() {
     // Listener para confirmación de mensaje enviado
     const handleMessageSent = (data: any) => {
       console.log('✅ Mensaje enviado confirmado:', data);
-      // Actualizar el status del mensaje a 'delivered'
+      // Actualizar el status del mensaje temporal a 'delivered'
       setMessages(prevMessages => 
         prevMessages.map(msg => 
-          msg.status === 'sending' 
-            ? { ...msg, status: 'delivered' }
+          msg.id === data.tempId
+            ? { ...msg, id: data.messageId, status: 'delivered' }
             : msg
         )
       );
@@ -488,16 +515,19 @@ export default function MessagesPage() {
     // Listener para errores de mensaje
     const handleMessageError = (error: any) => {
       console.error('❌ Error enviando mensaje:', error);
-      // Actualizar status a error
+      // Actualizar status a error para el mensaje con tempId
       setMessages(prevMessages => 
         prevMessages.map(msg => 
-          msg.status === 'sending' 
+          msg.id === error.tempId
             ? { ...msg, status: 'error' }
             : msg
         )
       );
       
-      announceToScreenReader('Error al enviar mensaje');
+      announceToScreenReader(`Error al enviar mensaje: ${error.error || 'Error desconocido'}`);
+      
+      // Mostrar notificación de error al usuario
+      alert(`Error al enviar mensaje: ${error.error || 'Error desconocido'}`);
     };
 
     // Registrar listeners
@@ -698,37 +728,44 @@ export default function MessagesPage() {
     if (!newMessage.trim() || !effectiveUser?.id) return;
 
     const messageText = newMessage.trim();
+    const tempId = Date.now(); // ID temporal para tracking
 
     // Anunciar envío para lectores de pantalla
     announceToScreenReader(`Enviando mensaje: ${messageText.substring(0, 50)}${messageText.length > 50 ? '...' : ''}`);
 
     // Determinar si es conversación real (UUID) o mock (número)
     if (typeof activeConversation === 'string') {
-      // Conversación real - usar Socket.IO para tiempo real
       console.log('📤 Enviando mensaje en tiempo real via Socket.IO');
       
-      // NO agregamos el mensaje a la UI aquí, esperamos la respuesta del servidor
-      // para evitar duplicados
+      // Agregar mensaje temporal inmediatamente a la UI con status "sending"
+      const tempMessage: Message = {
+        id: tempId,
+        sender: 'me' as const,
+        message: messageText,
+        timestamp: formatMadridTime(new Date()),
+        status: 'sending' as const
+      };
+      
+      setMessages(prev => [...prev, tempMessage]);
       setNewMessage("");
+
+      // Forzar scroll hacia abajo inmediatamente después de enviar
+      setTimeout(() => {
+        scrollToBottom(true);
+      }, 50);
 
       // Enviar via Socket.IO (se guardará en DB automáticamente)
       if (socket && isConnected) {
         socketSendMessage({
           conversationId: activeConversation,
           message: messageText,
+          tempId: tempId,
           conversationType: 'individual'
         });
-        
-        // Forzar scroll hacia abajo inmediatamente después de enviar
-        // para una mejor experiencia de usuario
-        setTimeout(() => {
-          scrollToBottom(true); // forzar scroll
-        }, 100);
-        
       } else {
-        console.warn('⚠️ Socket no conectado, usando fallback directo a DB');
-        // Fallback: enviar directamente a la base de datos
-        sendRealMessage();
+        console.warn('⚠️ Socket no conectado, usando fallback directo a API');
+        // Fallback: enviar directamente a la API
+        sendMessageViaAPI(activeConversation, messageText, tempId);
       }
 
     } else {
@@ -757,6 +794,50 @@ export default function MessagesPage() {
             : conv
         )
       );
+    }
+  };
+
+  // Nueva función de fallback para enviar via API cuando Socket.IO no está disponible
+  const sendMessageViaAPI = async (conversationId: string, messageText: string, tempId: number) => {
+    try {
+      const response = await fetch('/api/private-messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          conversationId,
+          message: messageText
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Error enviando mensaje');
+      }
+
+      const result = await response.json();
+      
+      // Actualizar el mensaje temporal con los datos reales de la DB
+      setMessages(prev => prev.map(msg => 
+        msg.id === tempId 
+          ? {
+              ...msg,
+              id: result.messageData.id,
+              status: 'delivered' as const
+            }
+          : msg
+      ));
+
+      console.log('✅ Mensaje enviado via API fallback');
+
+    } catch (error) {
+      console.error('❌ Error enviando via API:', error);
+      // Marcar mensaje como error
+      setMessages(prev => prev.map(msg => 
+        msg.id === tempId 
+          ? { ...msg, status: 'error' as const }
+          : msg
+      ));
     }
   };
 

@@ -46,6 +46,12 @@ app.prepare().then(() => {
   io.on('connection', (socket) => {
     console.log(`🔌 Nueva conexión Socket.IO: ${socket.id}`);
     
+    // Obtener datos de autenticación
+    const authToken = socket.handshake.auth.token;
+    const userId = socket.handshake.auth.userId;
+    
+    console.log(`🔑 Token recibido: ${authToken ? 'Sí' : 'No'}, UserID: ${userId}`);
+    
     // Estadísticas de conexiones
     const connectedUsers = userSessions.size;
     console.log(`📊 Usuarios conectados: ${connectedUsers + 1}`);
@@ -96,19 +102,75 @@ app.prepare().then(() => {
     // Manejar nuevo mensaje
     socket.on('send-message', async (data) => {
       const { conversationId, message, userId, tempId } = data;
+      const authToken = socket.handshake.auth.token;
+      
       console.log(`📤 Nuevo mensaje en conversación ${conversationId}:`, message);
+      console.log(`🔑 Usuario autenticado: ${userId}, Token: ${authToken ? 'Presente' : 'Ausente'}`);
 
       try {
-        // Simular guardado en base de datos (aquí deberías usar Supabase)
+        // Validar autenticación
+        if (!authToken || !userId) {
+          throw new Error('Token de autenticación o userId no proporcionado');
+        }
+
+        // Verificar token con Supabase
+        const { createClient } = require('@supabase/supabase-js');
+        
+        const supabase = createClient(
+          process.env.NEXT_PUBLIC_SUPABASE_URL,
+          process.env.SUPABASE_SERVICE_ROLE_KEY
+        );
+
+        // Verificar el token de usuario
+        const { data: { user }, error: authError } = await supabase.auth.getUser(authToken);
+        
+        if (authError || !user || user.id !== userId) {
+          console.error('❌ Error de autenticación:', authError?.message || 'Token inválido');
+          throw new Error('Token de autenticación inválido');
+        }
+
+        console.log('✅ Usuario autenticado:', user.id);
+
+        // Verificar que el usuario es parte de la conversación
+        const { data: conversation, error: convError } = await supabase
+          .from('conversations')
+          .select('*')
+          .eq('id', conversationId)
+          .or(`user1_id.eq.${userId},user2_id.eq.${userId}`)
+          .single();
+
+        if (convError || !conversation) {
+          throw new Error('Conversación no encontrada o usuario no autorizado');
+        }
+
+        // Insertar el mensaje
+        const { data: newMessage, error: insertError } = await supabase
+          .from('private_messages')
+          .insert({
+            conversation_id: conversationId,
+            sender_id: userId,
+            message: message.trim(),
+            created_at: new Date().toISOString()
+          })
+          .select()
+          .single();
+
+        if (insertError) {
+          throw new Error(`Error insertando mensaje: ${insertError.message}`);
+        }
+
+        // Crear datos del mensaje para enviar
         const messageData = {
-          id: Date.now(), // temporal
+          id: newMessage.id,
           conversation_id: conversationId,
           sender_id: userId,
-          message: message,
-          created_at: new Date().toISOString(),
+          message: newMessage.message,
+          created_at: newMessage.created_at,
           status: 'delivered',
           tempId: tempId
         };
+
+        console.log(`✅ Mensaje guardado en DB con ID: ${messageData.id}`);
 
         // Enviar a todos los usuarios en la conversación
         io.to(`conversation:${conversationId}`).emit('new-message', messageData);
@@ -122,7 +184,10 @@ app.prepare().then(() => {
 
       } catch (error) {
         console.error('💥 Error procesando mensaje:', error);
-        socket.emit('message-error', { error: 'Error del servidor', tempId });
+        socket.emit('message-error', { 
+          error: error.message || 'Error del servidor', 
+          tempId: tempId 
+        });
       }
     });
 
