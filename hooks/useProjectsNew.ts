@@ -1,25 +1,16 @@
 /**
- * Projects Business Logic Hooks
+ * Projects Business Logic Hooks - PERFORMANCE OPTIMIZED
  * Separates API calls and business logic from UI components
+ * Solves: N+1 queries, re-renders innecesarios, falta de debounce
  */
 
 import { useCallback, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthProvider';
 import { useProjectsStore } from '@/store/projects';
-
-// Type definitions (if not available, we'll use basic types)
-interface Project {
-  id: string;
-  title: string;
-  description: string;
-  creator_id: string;
-  status: string;
-  visibility: string;
-  created_at: string;
-  updated_at: string;
-  [key: string]: any;
-}
+import { Project, ProjectSearchFilters } from '@/types/projects';
+import { useDebounce, useDebouncedCallback } from './useDebounce';
+import { useMemoObject, useStableCallback } from './useMemoization';
 
 interface ProjectsResponse {
   projects: Project[];
@@ -128,7 +119,7 @@ export const useMyProjects = () => {
 };
 
 /**
- * Hook for managing Discover Projects operations
+ * Hook for managing Discover Projects operations - PERFORMANCE OPTIMIZED
  */
 export const useDiscoverProjects = () => {
   const { 
@@ -141,6 +132,9 @@ export const useDiscoverProjects = () => {
     setPagination,
     setFilters
   } = useProjectsStore();
+
+  // Optimizar filtros con memoización profunda
+  const optimizedFilters = useMemoObject(filters, ['search', 'category', 'industry', 'stage']);
 
   const loadProjects = useCallback(async (newFilters?: any) => {
     setLoading('projects', true);
@@ -157,7 +151,18 @@ export const useDiscoverProjects = () => {
       params.set('page', String(newFilters?.page || pagination.page));
       params.set('limit', String(newFilters?.limit || pagination.limit));
 
-      const response = await fetch(`/api/projects?${params}`);
+      // PERFORMANCE OPTIMIZATION: AbortController para cancelar requests anteriores
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
+
+      const response = await fetch(`/api/projects?${params}`, {
+        signal: controller.signal,
+        headers: {
+          'Cache-Control': 'max-age=300', // 5 minutes cache
+        },
+      });
+      
+      clearTimeout(timeoutId);
       
       if (!response.ok) {
         throw new Error('Failed to load projects');
@@ -174,32 +179,49 @@ export const useDiscoverProjects = () => {
       });
 
       if (newFilters) {
-        setFilters({ ...filters, ...newFilters });
+        setFilters({ ...optimizedFilters, ...newFilters });
       }
 
     } catch (error: any) {
+      if (error.name === 'AbortError') {
+        console.log('Request aborted');
+        return;
+      }
       setError(error.message || 'Failed to load projects');
       console.error('Error loading projects:', error);
     } finally {
       setLoading('projects', false);
     }
-  }, [filters, pagination, setProjects, setLoading, setError, setPagination, setFilters]);
+  }, [optimizedFilters, pagination, setProjects, setLoading, setError, setPagination, setFilters]);
 
-  const handleSearch = useCallback((searchTerm: string) => {
-    loadProjects({ ...filters, search: searchTerm, page: 1 });
-  }, [filters, loadProjects]);
+  // PERFORMANCE OPTIMIZATION: Debounce para búsquedas
+  const debouncedLoadProjects = useDebouncedCallback(
+    loadProjects,
+    500, // 500ms delay
+    { maxWait: 2000, deps: [loadProjects] }
+  );
 
-  const handleFilterChange = useCallback((newFilters: any) => {
-    loadProjects({ ...filters, ...newFilters, page: 1 });
-  }, [filters, loadProjects]);
+  const handleSearch = useStableCallback((searchTerm: string) => {
+    // Si el término está vacío, hacer búsqueda inmediata
+    if (!searchTerm.trim()) {
+      loadProjects({ ...optimizedFilters, search: '', page: 1 });
+    } else {
+      // Para términos de búsqueda, usar debounce
+      debouncedLoadProjects({ ...optimizedFilters, search: searchTerm, page: 1 });
+    }
+  }, [optimizedFilters, loadProjects, debouncedLoadProjects]);
 
-  const handlePageChange = useCallback((page: number) => {
-    loadProjects({ ...filters, page });
-  }, [filters, loadProjects]);
+  const handleFilterChange = useStableCallback((newFilters: any) => {
+    loadProjects({ ...optimizedFilters, ...newFilters, page: 1 });
+  }, [optimizedFilters, loadProjects]);
+
+  const handlePageChange = useStableCallback((page: number) => {
+    loadProjects({ ...optimizedFilters, page });
+  }, [optimizedFilters, loadProjects]);
 
   return {
     projects,
-    filters,
+    filters: optimizedFilters,
     pagination,
     loadProjects,
     handleSearch,

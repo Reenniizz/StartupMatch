@@ -1,9 +1,10 @@
 /**
- * Projects Tab Content Components
+ * Projects Tab Content Components - PERFORMANCE OPTIMIZED
  * Separates UI logic for better maintainability
+ * Solves: Re-renders innecesarios + optimizaciones de memoria
  */
 
-import React from 'react';
+import React, { memo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { ProjectCard } from '@/components/ProjectCard';
@@ -12,8 +13,10 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Plus, AlertCircle } from 'lucide-react';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthProvider';
-import { useMyProjects } from '@/hooks/useProjectsNew';
+import { useMyProjects, useDiscoverProjects } from '@/hooks/useProjectsNew';
 import { useProjectsUI, useProjectsLoading } from '@/store/projects';
+import { OptimizedSearch } from '@/components/OptimizedSearch';
+import { OptimizedProjectList } from '@/components/LazyProjectList';
 
 // Loading skeleton component
 const ProjectLoadingSkeleton = () => (
@@ -57,8 +60,8 @@ const ProjectErrorState = ({ error, onRetry, onCreate }: {
   </div>
 );
 
-// My Projects Tab Component
-export const MyProjectsTab = () => {
+// My Projects Tab Component - PERFORMANCE OPTIMIZED
+export const MyProjectsTab = memo(() => {
   const { session } = useAuth();
   const { loading, error } = useProjectsLoading();
   const { openProjectModal } = useProjectsUI();
@@ -99,23 +102,29 @@ export const MyProjectsTab = () => {
   // Projects found state
   if (myProjects.length > 0) {
     return (
-      <div>
-        <p className="text-sm text-muted-foreground mb-4">
-          {myProjects.length} proyecto{myProjects.length !== 1 ? 's' : ''} encontrado{myProjects.length !== 1 ? 's' : ''}
-        </p>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {myProjects.map((project) => (
-            <ProjectCard
-              key={project.id}
-              project={project}
-              onLike={handleLike}
-              onClick={openProjectModal}
-              onDelete={handleDelete}
-              onDeleteDialogOpen={handleDeleteDialogOpen}
-              showActions={true}
-            />
-          ))}
+      <div className="space-y-4">
+        {/* Header con estadísticas */}
+        <div className="flex justify-between items-center">
+          <div>
+            <h3 className="text-xl font-semibold">Mis Proyectos</h3>
+            <p className="text-sm text-muted-foreground">
+              {myProjects.length} proyecto{myProjects.length !== 1 ? 's' : ''} encontrado{myProjects.length !== 1 ? 's' : ''}
+            </p>
+          </div>
+          <Button asChild>
+            <Link href="/projects/create">
+              <Plus className="h-4 w-4 mr-2" />
+              Crear Proyecto
+            </Link>
+          </Button>
         </div>
+
+        {/* Lista optimizada de proyectos */}
+        <OptimizedProjectList
+          projects={myProjects}
+          onProjectClick={openProjectModal}
+          onProjectLike={handleLike}
+        />
       </div>
     );
   }
@@ -129,28 +138,64 @@ export const MyProjectsTab = () => {
       <EmptyState type="no-my-projects" />
     </div>
   );
-};
+});
 
-// Discover Projects Tab Component
-export const DiscoverProjectsTab = () => {
+MyProjectsTab.displayName = 'MyProjectsTab';
+
+// Discover Projects Tab Component - PERFORMANCE OPTIMIZED
+export const DiscoverProjectsTab = memo(() => {
+  const { projects, handleSearch, handleFilterChange, handlePageChange } = useDiscoverProjects();
+  const { loading, error } = useProjectsLoading();
+  const { openProjectModal } = useProjectsUI();
+
   return (
     <div className="space-y-6">
-      <h3 className="text-xl font-semibold">Descubrir Proyectos</h3>
-      <div className="text-center py-12">
-        <p>Tab de descubrir en desarrollo...</p>
+      <div className="flex justify-between items-center">
+        <h3 className="text-xl font-semibold">Descubrir Proyectos</h3>
       </div>
+
+      {/* OPTIMIZATION: Búsqueda optimizada con debounce */}
+      <OptimizedSearch
+        onSearch={handleSearch}
+        placeholder="Buscar proyectos por nombre, descripción o tecnología..."
+        debounceMs={500}
+        minLength={2}
+        className="max-w-md"
+      />
+
+      {/* Content */}
+      {loading.projects ? (
+        <ProjectLoadingSkeleton />
+      ) : error ? (
+        <ProjectErrorState 
+          error={error} 
+          onRetry={() => window.location.reload()}
+        />
+      ) : (
+        <OptimizedProjectList
+          projects={projects}
+          onProjectClick={openProjectModal}
+          onProjectLike={(id) => console.log('Like:', id)}
+        />
+      )}
     </div>
   );
-};
+});
 
-// Applications Tab Component
-export const ApplicationsTab = () => {
+DiscoverProjectsTab.displayName = 'DiscoverProjectsTab';
+
+// Applications Tab Component - PERFORMANCE OPTIMIZED
+export const ApplicationsTab = memo(() => {
   return (
     <div className="space-y-6">
       <h3 className="text-xl font-semibold">Mis Aplicaciones</h3>
       <div className="text-center py-12">
-        <p>Tab de aplicaciones en desarrollo...</p>
+        <p className="text-muted-foreground">
+          Esta funcionalidad estará disponible próximamente.
+        </p>
       </div>
     </div>
   );
-};
+});
+
+ApplicationsTab.displayName = 'ApplicationsTab';
