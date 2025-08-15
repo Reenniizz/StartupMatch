@@ -1,3 +1,8 @@
+/**
+ * Create Project Page - Refactored Clean Architecture
+ * Uses step-by-step wizard with proper validation and file management
+ */
+
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -15,6 +20,7 @@ import RichTextEditor from '@/components/RichTextEditorSimple';
 import { ArrowLeft, ArrowRight, Save, Upload, Eye, CheckCircle, Plus } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { projectStorageService, ProjectFile } from '@/lib/project-storage';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 
 interface ProjectFormData {
   // Paso 1: Información Básica
@@ -394,8 +400,9 @@ export default function CreateProjectPage() {
   const progress = (currentStep / STEPS.length) * 100;
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="container mx-auto px-4 py-8 max-w-4xl">
+    <ErrorBoundary>
+      <div className="min-h-screen bg-background">
+        <div className="container mx-auto px-4 py-8 max-w-4xl">
         {/* Header */}
         <div className="mb-8">
           <div className="flex items-center gap-4 mb-4">
@@ -1210,7 +1217,8 @@ export default function CreateProjectPage() {
             )}
           </div>
         </div>
+        </div>
       </div>
-    </div>
+    </ErrorBoundary>
   );
 }
