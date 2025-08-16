@@ -19,13 +19,14 @@ import {
   CheckCheck
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { MessageStatusIcon } from '@/components/MessageStatusIndicators';
 
 interface Message {
   id: number;
   sender: 'me' | 'other';
   message: string;
   timestamp: string;
-  status?: 'sending' | 'sent' | 'delivered';
+  status?: 'sending' | 'sent' | 'delivered' | 'read';
   tempId?: string;
 }
 
@@ -224,6 +225,25 @@ export default function ModernMessagesPage() {
       alert(`Error enviando mensaje: ${data.error}`);
     });
 
+    // ✅ MANEJAR CONFIRMACIONES DE LECTURA
+    socketConnection.on('messages-read-confirmation', (data) => {
+      console.log(`📖 Confirmación: ${data.readCount} mensajes leídos por usuario ${data.readBy}`);
+      
+      // Actualizar estado de mensajes propios como "leídos"
+      setMessages(prev => prev.map(msg => ({
+        ...msg,
+        status: msg.sender === 'me' && msg.status === 'delivered' ? 'read' : msg.status
+      })));
+    });
+
+    socketConnection.on('messages-read-success', (data) => {
+      console.log(`✅ ${data.readCount} mensajes marcados como leídos exitosamente`);
+    });
+
+    socketConnection.on('messages-read-error', (data) => {
+      console.error('❌ Error marcando mensajes como leídos:', data.error);
+    });
+
     setSocket(socketConnection);
 
     return () => {
@@ -260,9 +280,49 @@ export default function ModernMessagesPage() {
       if (response.ok) {
         const data = await response.json();
         setMessages(data);
+        
+        // Marcar mensajes como leídos automáticamente al abrir la conversación
+        await markMessagesAsRead(conversationId);
       }
     } catch (error) {
       console.error('Error loading messages:', error);
+    }
+  };
+
+  // Mark messages as read
+  const markMessagesAsRead = async (conversationId: string) => {
+    try {
+      const response = await fetch('/api/messages/mark-read', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          conversationId
+        })
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        console.log(`📖 ${result.read} mensajes marcados como leídos`);
+
+        // Notificar via Socket.IO que se marcaron mensajes como leídos
+        if (socket && isConnected) {
+          socket.emit('messages-read', {
+            conversationId,
+            userId: user?.id
+          });
+        }
+
+        // Actualizar el estado local de los mensajes
+        setMessages(prev => prev.map(msg => ({
+          ...msg,
+          status: msg.sender === 'other' ? 'read' : 
+                  msg.status === 'delivered' ? 'read' : msg.status
+        })));
+      }
+    } catch (error) {
+      console.error('Error marking messages as read:', error);
     }
   };
 
@@ -627,15 +687,13 @@ function ModernChatArea({
                   {formatTime(message.timestamp)}
                 </span>
                 {message.sender === 'me' && (
-                  <span className="text-blue-100 ml-2">
-                    {message.status === 'sending' ? (
-                      <div className="w-3 h-3 animate-spin rounded-full border border-white border-t-transparent" />
-                    ) : message.status === 'sent' ? (
-                      <Check className="w-3 h-3" />
-                    ) : (
-                      <CheckCheck className="w-3 h-3" />
-                    )}
-                  </span>
+                  <div className="ml-2">
+                    <MessageStatusIcon 
+                      status={message.status || 'sent'} 
+                      className="text-blue-100"
+                      size="sm"
+                    />
+                  </div>
                 )}
               </div>
             </div>

@@ -280,6 +280,65 @@ app.prepare().then(() => {
       socket.to(`conversation:${conversationId}`).emit('user-typing', { userId, isTyping: false });
     });
 
+    // ✅ Manejar marcado de mensajes como leídos
+    socket.on('messages-read', async (data) => {
+      const { conversationId, userId } = data;
+      console.log(`📖 Usuario ${userId} marcó mensajes como leídos en conversación ${conversationId}`);
+      
+      try {
+        // Actualizar mensajes como leídos en la base de datos
+        const { data: updatedMessages, error } = await supabase
+          .from('private_messages')
+          .update({ read_at: new Date().toISOString() })
+          .eq('conversation_id', conversationId)
+          .neq('sender_id', userId) // Solo mensajes que no envió este usuario
+          .is('read_at', null) // Solo mensajes no leídos
+          .select('id, sender_id');
+
+        if (error) {
+          console.error('Error updating read status:', error);
+          return;
+        }
+
+        const readCount = updatedMessages?.length || 0;
+        console.log(`✅ ${readCount} mensajes marcados como leídos en BD`);
+
+        // Notificar al remitente que sus mensajes fueron leídos
+        if (readCount > 0) {
+          // Obtener los IDs únicos de los remitentes
+          const senderIds = [...new Set(updatedMessages.map(m => m.sender_id))];
+          
+          senderIds.forEach(senderId => {
+            const senderSocketId = userSessions.get(senderId);
+            if (senderSocketId) {
+              const senderSocket = io.sockets.sockets.get(senderSocketId);
+              if (senderSocket) {
+                senderSocket.emit('messages-read-confirmation', {
+                  conversationId,
+                  readBy: userId,
+                  readCount
+                });
+                console.log(`✅ Confirmación de lectura enviada a usuario ${senderId}`);
+              }
+            }
+          });
+        }
+
+        // Confirmar al usuario que solicitó el marcado
+        socket.emit('messages-read-success', {
+          conversationId,
+          readCount
+        });
+
+      } catch (error) {
+        console.error('Error processing read messages:', error);
+        socket.emit('messages-read-error', {
+          conversationId,
+          error: 'Error al procesar mensajes leídos'
+        });
+      }
+    });
+
     socket.on('disconnect', (reason) => {
       console.log(`🔌 Socket desconectado: ${socket.id}, razón: ${reason}`);
       
