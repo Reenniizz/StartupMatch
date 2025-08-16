@@ -40,13 +40,14 @@ export interface PopularGroup {
 
 export interface ActivityItem {
   id: string;
-  type: 'match' | 'message' | 'profile' | 'event';
+  type: 'match' | 'message' | 'profile' | 'event' | 'like' | 'connection' | 'project' | 'notification' | 'trend' | 'achievement';
   title: string;
   description: string;
   timestamp: string;
   timeAgo: string;
   icon: string;
-  color: 'blue' | 'green' | 'purple' | 'orange';
+  color: 'blue' | 'green' | 'purple' | 'orange' | 'red' | 'yellow' | 'indigo' | 'pink' | 'emerald' | 'cyan';
+  badge?: string;
 }
 
 // === SIDEBAR TYPES ===
