@@ -136,6 +136,3 @@ export function useCacheManagement() {
     clearSpecificCache: clearCache,
   };
 }
-
-// Default export for compatibility
-export default ServiceWorkerProvider;
