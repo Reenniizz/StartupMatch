@@ -2,15 +2,15 @@
 
 import { useEffect, lazy, Suspense } from "react";
 import { motion } from "framer-motion";
-import Header from "@/components/Header";
-import Hero from "@/components/Hero";
+import Header from "@/components/landing/Header";
+import Hero from "@/components/landing/Hero";
 
 // Lazy load componentes pesados
-const HowItWorksNew = lazy(() => import("@/components/HowItWorksNew"));
-const Differentiators = lazy(() => import("@/components/Differentiators"));
-const Testimonials = lazy(() => import("@/components/Testimonials"));
-const GetStarted = lazy(() => import("@/components/GetStarted"));
-const Footer = lazy(() => import("@/components/Footer"));
+const HowItWorksNew = lazy(() => import("@/components/landing/HowItWorksNew"));
+const Differentiators = lazy(() => import("@/components/landing/Differentiators"));
+const Testimonials = lazy(() => import("@/components/landing/Testimonials"));
+const GetStarted = lazy(() => import("@/components/landing/GetStarted"));
+const Footer = lazy(() => import("@/components/landing/Footer"));
 
 export default function Home() {
   // Force scroll to top on page load and smooth scrolling for anchor links

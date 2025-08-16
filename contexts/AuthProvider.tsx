@@ -2,7 +2,9 @@
 
 import { createContext, useContext, useEffect, useState } from 'react';
 import { User, Session } from '@supabase/supabase-js';
-import { supabase, handleSupabaseError } from '@/lib/supabase-client';
+import { createSecureBrowserClient, secureSignOut } from '@/lib/auth-secure';
+import { validateAndSanitize, loginSchema, registerSchema } from '@/lib/input-validation';
+import { secureLog } from '@/lib/input-validation';
 
 interface AuthContextType {
   user: User | null;
@@ -32,11 +34,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // ✅ SECURE: Get initial user with validation
     const initializeAuth = async () => {
       try {
+        const supabase = createSecureBrowserClient();
+        
         // Use getUser() for secure authentication check
         const { data: { user }, error } = await supabase.auth.getUser();
         
         if (error) {
-          console.warn('Error al validar usuario inicial:', error);
+          secureLog('warn', 'Error validating initial user', { 
+            error: error.message 
+          });
           setUser(null);
           setSession(null);
         } else {
@@ -46,7 +52,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setSession(session);
         }
       } catch (error) {
-        console.error('Error de red al validar usuario:', error);
+        secureLog('error', 'Network error validating user', error);
         setUser(null);
         setSession(null);
       } finally {
@@ -57,10 +63,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     initializeAuth();
 
     // Listen for auth changes
+    const supabase = createSecureBrowserClient();
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log('Auth state change:', event, session?.user?.email);
+    } = supabase.auth.onAuthStateChange(async (event: any, session: any) => {
+      secureLog('info', 'Auth state change', { 
+        event, 
+        hasSession: !!session,
+        userEmail: session?.user?.email?.replace(/(.{3}).+(@.+)/, '$1***$2')
+      });
       
       // ⚠️ WARNING: session from onAuthStateChange may not be secure
       // For critical operations, always use getUser() to validate
@@ -87,29 +98,75 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signIn = async (email: string, password: string) => {
     try {
+      // Validate input first
+      const validation = validateAndSanitize(loginSchema, { email, password });
+      
+      if (!validation.success) {
+        return { 
+          error: { 
+            message: validation.errors.join(', ') 
+          } 
+        };
+      }
+
+      const supabase = createSecureBrowserClient();
       const { error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
+        email: validation.data.email,
+        password: validation.data.password,
       });
+
+      if (error) {
+        secureLog('warn', 'Sign in failed', { 
+          email: validation.data.email.replace(/(.{3}).+(@.+)/, '$1***$2'),
+          error: error.message 
+        });
+      } else {
+        secureLog('info', 'Sign in successful', { 
+          email: validation.data.email.replace(/(.{3}).+(@.+)/, '$1***$2')
+        });
+      }
+
       return { error };
     } catch (error) {
-      console.error('Network error during sign in:', error);
-      const processedError = handleSupabaseError(error);
-      return { error: { message: processedError.message } };
+      secureLog('error', 'Network error during sign in', error);
+      return { error: { message: 'Network error during authentication' } };
     }
   };
 
   const signUp = async (email: string, password: string) => {
     try {
+      // Validate input first
+      const validation = validateAndSanitize(loginSchema, { email, password });
+      
+      if (!validation.success) {
+        return { 
+          error: { 
+            message: validation.errors.join(', ') 
+          } 
+        };
+      }
+
+      const supabase = createSecureBrowserClient();
       const { error } = await supabase.auth.signUp({
-        email,
-        password,
+        email: validation.data.email,
+        password: validation.data.password,
       });
+
+      if (error) {
+        secureLog('warn', 'Sign up failed', { 
+          email: validation.data.email.replace(/(.{3}).+(@.+)/, '$1***$2'),
+          error: error.message 
+        });
+      } else {
+        secureLog('info', 'Sign up successful', { 
+          email: validation.data.email.replace(/(.{3}).+(@.+)/, '$1***$2')
+        });
+      }
+
       return { error };
     } catch (error) {
-      console.error('Network error during sign up:', error);
-      const processedError = handleSupabaseError(error);
-      return { error: { message: processedError.message } };
+      secureLog('error', 'Network error during sign up', error);
+      return { error: { message: 'Network error during registration' } };
     }
   };
 
@@ -120,45 +177,70 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     [key: string]: any;
   }) => {
     // 🔍 DEBUG: Log signup attempt
-    console.log("🔍 AUTH PROVIDER - INICIANDO SIGNUP");
-    console.log("📧 Email:", email);
-    console.log("🔑 Password provided:", !!password);
-    console.log("📋 Metadata:", metadata);
+    secureLog('info', 'Starting secure signup process', {
+      hasEmail: !!email,
+      hasPassword: !!password,
+      hasMetadata: !!metadata
+    });
 
     try {
-      // Try to sign up first
-      const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+      // Validate input with comprehensive schema
+      const validation = validateAndSanitize(registerSchema, {
+        firstName: metadata?.firstName || '',
+        lastName: metadata?.lastName || '',
+        username: metadata?.username || '',
         email,
         password,
+        confirmPassword: password
+      });
+
+      if (!validation.success) {
+        secureLog('warn', 'Registration validation failed', { 
+          errors: validation.errors 
+        });
+        return { error: { message: validation.errors.join(', ') } };
+      }
+
+      const supabase = createSecureBrowserClient();
+
+      // Try to sign up first
+      const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+        email: validation.data.email,
+        password: validation.data.password,
         options: {
-          data: metadata || {}
+          data: {
+            firstName: validation.data.firstName,
+            lastName: validation.data.lastName,
+            username: validation.data.username,
+            ...metadata
+          }
         }
       });
       
       // 🔍 DEBUG: Log Supabase response
-      console.log("🔍 SUPABASE SIGNUP RESPONSE:");
-      console.log("✅ Data:", signUpData);
-      console.log("❌ Error:", signUpError);
-      console.log("👤 User created:", !!signUpData?.user);
-      console.log("🔐 Session created:", !!signUpData?.session);
-      console.log("📧 Email confirmed:", signUpData?.user?.email_confirmed_at);
+      secureLog('info', 'Supabase signup response', {
+        hasUser: !!signUpData?.user,
+        hasSession: !!signUpData?.session,
+        emailConfirmed: !!signUpData?.user?.email_confirmed_at,
+        hasError: !!signUpError
+      });
       
       if (signUpError) {
-        console.error("❌ SIGNUP ERROR:", signUpError);
+        secureLog('error', 'Signup error', { error: signUpError.message });
         return { error: signUpError };
       }
 
       // If signup successful, check if user was created and session exists
       if (signUpData.session) {
         // User is already logged in (email confirmation disabled)
-        console.log("✅ SESIÓN CREADA - Usuario logueado automáticamente");
+        secureLog('info', 'Session created - user logged in automatically');
         return { error: null, user: signUpData.user };
       }
 
       // If no session but user was created, it means email confirmation is required
       // But we still consider this a successful registration
       if (signUpData.user) {
-        console.log("📧 USUARIO CREADO - Confirmación de email requerida");
+        secureLog('info', 'User created - email confirmation may be required');
         return { 
           error: null, 
           needsConfirmation: !signUpData.user.email_confirmed_at,
@@ -167,58 +249,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       // Neither session nor user - something went wrong
-      console.error("❌ NO SE CREÓ USUARIO NI SESIÓN");
-      return { error: { message: "No se pudo crear el usuario" } };
+      secureLog('error', 'No user or session created');
+      return { error: { message: "Failed to create user account" } };
 
     } catch (error) {
-      console.error("💥 EXCEPCIÓN EN SIGNUP:", error);
-      return { error: { message: `Error inesperado: ${error instanceof Error ? error.message : String(error)}` } };
+      secureLog('error', 'Exception during signup', error);
+      return { error: { message: `Registration failed: ${error instanceof Error ? error.message : String(error)}` } };
     }
   };
 
   const signOut = async () => {
     try {
-      // Intentar cerrar sesión en Supabase con timeout
-      const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('Timeout')), 3000)
-      );
+      secureLog('info', 'Starting secure sign out');
+      await secureSignOut();
       
-      const signOutPromise = supabase.auth.signOut();
+      // SIEMPRE limpiar estado local
+      setUser(null);
+      setSession(null);
       
-      await Promise.race([signOutPromise, timeoutPromise]);
-      
-      console.log('✅ Logout exitoso en Supabase');
+      secureLog('info', 'Sign out completed successfully');
     } catch (error) {
-      console.warn('⚠️ Error al cerrar sesión en Supabase (procediendo con limpieza local):', error);
-    }
-    
-    // SIEMPRE limpiar estado local, independientemente del resultado
-    setUser(null);
-    setSession(null);
-    
-    // Limpiar todas las posibles ubicaciones de tokens
-    if (typeof window !== 'undefined') {
-      try {
-        // Limpiar localStorage de Supabase
-        const keys = Object.keys(localStorage);
-        keys.forEach(key => {
-          if (key.includes('supabase') || key.includes('sb-')) {
-            localStorage.removeItem(key);
-          }
-        });
-        
-        // Limpiar sessionStorage también
-        const sessionKeys = Object.keys(sessionStorage);
-        sessionKeys.forEach(key => {
-          if (key.includes('supabase') || key.includes('sb-')) {
-            sessionStorage.removeItem(key);
-          }
-        });
-        
-        console.log('🧹 Cache local limpiado');
-      } catch (storageError) {
-        console.warn('Error limpiando storage:', storageError);
-      }
+      secureLog('error', 'Error during sign out', error);
+      
+      // Limpiar estado local incluso si hay error
+      setUser(null);
+      setSession(null);
     }
   };
 

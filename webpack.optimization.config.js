@@ -1,90 +1,74 @@
-// webpack.config.optimization.js
-// Configuraciones avanzadas de optimización para reducir warnings
+/** @type {import('webpack').Configuration} */
+const path = require('path');
 
 module.exports = {
-  // Optimización de caché para reducir serialización de strings grandes
-  cacheOptimization: {
-    type: 'filesystem',
-    maxMemoryGenerations: 0, // Evita mantener muchas generaciones en memoria
-    compression: 'gzip', // Comprime la caché
-    hashAlgorithm: 'xxhash64', // Algoritmo más rápido
-    
-    // Configuración de memoria
-    memoryCacheUnaffected: true,
-    maxAge: 2 * 24 * 60 * 60 * 1000, // 2 días
-    
-    // Subdirectorios para organizar caché
-    cacheDirectory: 'node_modules/.cache/webpack',
-    name: 'startupmatch-cache',
-  },
-
-  // Optimización de chunks para evitar strings grandes
-  splitChunksOptimization: {
-    chunks: 'all',
-    minSize: 10000, // 10KB mínimo
-    maxSize: 100000, // 100KB máximo para evitar strings grandes
-    minRemainingSize: 0,
-    minChunks: 1,
-    maxAsyncRequests: 30,
-    maxInitialRequests: 30,
-    enforceSizeThreshold: 50000,
-    
-    cacheGroups: {
-      // Separar Supabase en su propio chunk
-      supabase: {
-        test: /[\\/]node_modules[\\/]@supabase[\\/]/,
-        name: 'supabase',
-        chunks: 'all',
-        priority: 20,
-        maxSize: 150000,
-      },
-      
-      // Separar UI libraries
-      ui: {
-        test: /[\\/]node_modules[\\/](@radix-ui|lucide-react)[\\/]/,
-        name: 'ui-libs',
-        chunks: 'all',
-        priority: 15,
-        maxSize: 100000,
-      },
-      
-      // Vendor chunks más pequeños
-      vendor: {
-        test: /[\\/]node_modules[\\/]/,
-        name: 'vendors',
-        chunks: 'all',
-        priority: 10,
-        maxSize: 200000,
-      },
-      
-      // Common chunks
-      common: {
-        name: 'commons',
-        chunks: 'all',
-        minChunks: 2,
-        priority: 5,
-        reuseExistingChunk: true,
-        maxSize: 100000,
+  optimization: {
+    splitChunks: {
+      chunks: 'all',
+      cacheGroups: {
+        // Vendor chunks para librerías específicas
+        supabase: {
+          name: 'chunk-supabase',
+          test: /[\\/]node_modules[\\/](@supabase)[\\/]/,
+          chunks: 'all',
+          priority: 20,
+        },
+        framerMotion: {
+          name: 'chunk-framer-motion',
+          test: /[\\/]node_modules[\\/](framer-motion)[\\/]/,
+          chunks: 'all',
+          priority: 20,
+        },
+        lucideIcons: {
+          name: 'chunk-lucide-react',
+          test: /[\\/]node_modules[\\/](lucide-react)[\\/]/,
+          chunks: 'all',
+          priority: 20,
+        },
+        socketIO: {
+          name: 'chunk-socket-io',
+          test: /[\\/]node_modules[\\/](socket\.io-client)[\\/]/,
+          chunks: 'all',
+          priority: 20,
+        },
+        // Chunk para componentes UI pesados
+        uiComponents: {
+          name: 'chunk-ui-heavy',
+          test: /[\\/]components[\\/](RichTextEditor|ui)[\\/]/,
+          chunks: 'all',
+          priority: 15,
+          minSize: 10000,
+        },
+        // Chunk común para vendor
+        vendor: {
+          name: 'chunk-vendor',
+          test: /[\\/]node_modules[\\/]/,
+          chunks: 'all',
+          priority: 10,
+          minSize: 20000,
+        },
+        // Chunk para componentes compartidos
+        shared: {
+          name: 'chunk-shared',
+          test: /[\\/]components[\\/]shared[\\/]/,
+          chunks: 'all',
+          priority: 5,
+          minSize: 5000,
+        }
       },
     },
   },
-
-  // Configuración para suprimir warnings específicos
-  warningSuppressions: [
-    // Supabase Edge Runtime warnings
-    /A Node\.js API is used.*which is not supported in the Edge Runtime/,
-    
-    // Webpack cache warnings
-    /Serializing big strings.*impacts deserialization performance/,
-    
-    // Dependency warnings
-    /Critical dependency: the request of a dependency is an expression/,
-    
-    // Buffer/encoding warnings
-    /Module not found: Can't resolve 'bufferutil'/,
-    /Module not found: Can't resolve 'utf-8-validate'/,
-    
-    // Supabase specific
-    { module: /node_modules\/@supabase\// },
-  ],
+  // Tree shaking mejorado
+  mode: 'production',
+  resolve: {
+    // Optimizar resolución de módulos
+    modules: [path.resolve(__dirname, 'node_modules'), 'node_modules'],
+    alias: {
+      // Aliases para imports más eficientes
+      '@components': path.resolve(__dirname, 'components'),
+      '@lib': path.resolve(__dirname, 'lib'),
+      '@types': path.resolve(__dirname, 'types'),
+      '@hooks': path.resolve(__dirname, 'hooks'),
+    }
+  }
 };

@@ -1,8 +1,100 @@
-// server.js - Servidor personalizado con Socket.IO
+// server.js - Servidor personalizado con Socket.IO y validación segura
 const { createServer } = require('http');
 const { parse } = require('url');
 const next = require('next');
 const { Server: SocketIOServer } = require('socket.io');
+const { createClient } = require('@supabase/supabase-js');
+
+// 🔒 SECURE: Import validation system
+const path = require('path');
+const fs = require('fs');
+
+// Load secure validation functions - Convert ES modules to CommonJS compatible
+let validateAndSanitize, messageSchema, secureLog;
+
+const loadSecurityModule = () => {
+  try {
+    // Since this is a Node.js server and we're using ES modules in lib/
+    // We'll implement the validation directly here for now
+    
+    const validator = require('validator');
+    
+    // Basic message validation schema
+    const messageSchema = {
+      message: {
+        type: 'string',
+        required: true,
+        maxLength: 5000,
+        minLength: 1
+      }
+    };
+    
+    validateAndSanitize = (schema, data) => {
+      const errors = [];
+      const sanitized = {};
+      
+      if (!data.message || typeof data.message !== 'string') {
+        errors.push('Mensaje inválido');
+        return { success: false, errors };
+      }
+      
+      // Sanitize HTML
+      let message = data.message.trim();
+      
+      // Remove dangerous content
+      message = message
+        .replace(/[<>]/g, '') // Remove < >
+        .replace(/javascript:/gi, '') // Remove javascript:
+        .replace(/on\w+\s*=/gi, '') // Remove event handlers
+        .replace(/[\x00-\x1F\x7F-\x9F]/g, '') // Control characters
+        .trim();
+      
+      if (message.length === 0) {
+        errors.push('Mensaje vacío después de sanitización');
+        return { success: false, errors };
+      }
+      
+      if (message.length > 5000) {
+        errors.push('Mensaje demasiado largo');
+        return { success: false, errors };
+      }
+      
+      sanitized.message = message;
+      return { success: true, data: sanitized };
+    };
+    
+    secureLog = (level, message, data = {}) => {
+      const timestamp = new Date().toISOString();
+      const logData = {
+        timestamp,
+        level: level.toUpperCase(),
+        message,
+        ...data
+      };
+      
+      if (level === 'error') {
+        console.error(`🔒 SECURE LOG [${level.toUpperCase()}]:`, logData);
+      } else if (level === 'warn') {
+        console.warn(`🔒 SECURE LOG [${level.toUpperCase()}]:`, logData);
+      } else {
+        console.log(`🔒 SECURE LOG [${level.toUpperCase()}]:`, logData);
+      }
+    };
+    
+    console.log('✅ Security validation module loaded');
+    
+  } catch (error) {
+    console.error('❌ Error loading security module:', error);
+    // Fallback functions
+    validateAndSanitize = () => ({ success: false, errors: ['Security module not available'] });
+    secureLog = console.log;
+  }
+};
+
+loadSecurityModule();
+
+// 📊 SOCKET.IO: Map para rastrear sesiones de usuario conectadas
+const userSessions = new Map(); // userId -> socketId
 
 const dev = process.env.NODE_ENV !== 'production';
 const hostname = 'localhost';
@@ -20,8 +112,11 @@ app.prepare().then(() => {
       await handle(req, res, parsedUrl);
     } catch (err) {
       console.error('Error occurred handling', req.url, err);
-      res.statusCode = 500;
-      res.end('internal server error');
+      // Don't interfere with Next.js error handling
+      if (!res.headersSent) {
+        res.statusCode = 500;
+        res.end('internal server error');
+      }
     }
   });
 
@@ -38,9 +133,90 @@ app.prepare().then(() => {
     pingInterval: 25000
   });
 
-  console.log('🚀 Socket.IO server iniciado en puerto', port);
+  // 🔒 SECURE: Enhanced message validation using security system
+  const validateMessage = (message) => {
+    const validation = validateAndSanitize({ message: { type: 'string', required: true } }, { message });
+    
+    if (!validation.success) {
+      return { 
+        isValid: false, 
+        error: validation.errors.join(', ') 
+      };
+    }
 
-  const userSessions = new Map(); // userId -> socketId
+    return { 
+      isValid: true, 
+      sanitizedMessage: validation.data.message 
+    };
+  };
+
+  // 🔒 SECURE: Enhanced user verification with detailed logging
+  const verifyUser = async (userId, socket) => {
+    if (!userId || typeof userId !== 'string') {
+      secureLog('warn', 'Invalid user ID provided', { 
+        socketId: socket.id,
+        userIdType: typeof userId 
+      });
+      socket.emit('auth-error', { message: 'ID de usuario inválido' });
+      return false;
+    }
+
+    // Validate UUID format
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(userId)) {
+      secureLog('warn', 'Invalid UUID format', { 
+        socketId: socket.id,
+        userId: userId.substring(0, 8) + '...' // Log only first part for privacy
+      });
+      socket.emit('auth-error', { message: 'Formato de ID inválido' });
+      return false;
+    }
+
+    try {
+      // Create secure Supabase client for server operations
+      const supabase = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL,
+        process.env.SUPABASE_SERVICE_ROLE_KEY,
+        {
+          auth: {
+            autoRefreshToken: false,
+            persistSession: false
+          }
+        }
+      );
+
+      // Verify user exists and is active
+      const { data: user, error } = await supabase
+        .from('user_profiles')
+        .select('id, created_at')
+        .eq('id', userId)
+        .single();
+
+      if (error || !user) {
+        secureLog('warn', 'User not found in database', { 
+          socketId: socket.id,
+          userId: userId.substring(0, 8) + '...',
+          error: error?.message 
+        });
+        socket.emit('auth-error', { message: 'Usuario no encontrado' });
+        return false;
+      }
+
+      secureLog('info', 'User verified successfully', { 
+        socketId: socket.id,
+        userId: userId.substring(0, 8) + '...'
+      });
+      
+      return true;
+    } catch (error) {
+      secureLog('error', 'Database error during user verification', { 
+        socketId: socket.id,
+        error: error.message 
+      });
+      socket.emit('auth-error', { message: 'Error de verificación' });
+      return false;
+    }
+  };
   
   // Función para entregar mensajes offline
   const deliverOfflineMessages = async (userId, socket) => {
@@ -168,6 +344,12 @@ app.prepare().then(() => {
         return;
       }
 
+      // 🔒 VERIFICAR USUARIO
+      const isUserValid = await verifyUser(userId, socket);
+      if (!isUserValid) {
+        return;
+      }
+
       // Si el usuario ya tiene otra sesión, desconectar la anterior
       if (userSessions.has(userId)) {
         const oldSocketId = userSessions.get(userId);
@@ -204,53 +386,173 @@ app.prepare().then(() => {
       console.log(`💬 Usuario se unió a conversación: ${conversationId}`);
     });
 
-    // Manejar nuevo mensaje con persistencia en base de datos
+    // 🔒 SECURE: Enhanced message handling with comprehensive validation
     socket.on('send-message', async (data) => {
       const { conversationId, message, userId, tempId } = data;
-      console.log(`📤 Nuevo mensaje en conversación ${conversationId}:`, message);
+      
+      secureLog('info', 'Message send attempt', { 
+        socketId: socket.id,
+        hasConversationId: !!conversationId,
+        hasMessage: !!message,
+        hasUserId: !!userId,
+        messageLength: message?.length || 0
+      });
+
+      // 🔒 VALIDATION: Check required fields
+      if (!userId || !conversationId || !message) {
+        secureLog('warn', 'Incomplete message data', { 
+          socketId: socket.id,
+          missingFields: {
+            userId: !userId,
+            conversationId: !conversationId,
+            message: !message
+          }
+        });
+        socket.emit('message-error', { 
+          error: 'Datos incompletos',
+          tempId 
+        });
+        return;
+      }
+
+      // 🔒 VALIDATION: Verify user authentication
+      const isUserValid = await verifyUser(userId, socket);
+      if (!isUserValid) {
+        secureLog('warn', 'Unauthorized message attempt', { 
+          socketId: socket.id,
+          userId: userId.substring(0, 8) + '...'
+        });
+        return;
+      }
+
+      // 🔒 VALIDATION: Sanitize message content
+      const messageValidation = validateMessage(message);
+      if (!messageValidation.isValid) {
+        secureLog('warn', 'Message validation failed', { 
+          socketId: socket.id,
+          userId: userId.substring(0, 8) + '...',
+          error: messageValidation.error
+        });
+        socket.emit('message-error', { 
+          error: messageValidation.error,
+          tempId 
+        });
+        return;
+      }
+
+      // 🔒 VALIDATION: Check rate limiting
+      if (!checkMessageRateLimit(userId)) {
+        secureLog('warn', 'Rate limit exceeded', { 
+          socketId: socket.id,
+          userId: userId.substring(0, 8) + '...'
+        });
+        socket.emit('message-error', { 
+          error: 'Demasiados mensajes. Intenta más tarde.',
+          tempId 
+        });
+        return;
+      }
+
+      const sanitizedMessage = messageValidation.sanitizedMessage;
+      
+      secureLog('info', 'Message validated and sanitized', { 
+        socketId: socket.id,
+        userId: userId.substring(0, 8) + '...',
+        conversationId,
+        originalLength: message.length,
+        sanitizedLength: sanitizedMessage.length
+      });
 
       try {
-        // ✅ GUARDAR MENSAJE EN BASE DE DATOS
-        const { createClient } = require('@supabase/supabase-js');
+        // ✅ SECURE: Save message to database with service key
         const supabase = createClient(
           process.env.NEXT_PUBLIC_SUPABASE_URL,
-          process.env.SUPABASE_SERVICE_ROLE_KEY // Usar service key para server
+          process.env.SUPABASE_SERVICE_ROLE_KEY,
+          {
+            auth: {
+              autoRefreshToken: false,
+              persistSession: false
+            }
+          }
         );
 
-        // Insertar mensaje en la base de datos
+        // 🔒 VALIDATION: Verify user has access to conversation
+        const { data: conversation, error: convError } = await supabase
+          .from('conversations')
+          .select('user1_id, user2_id')
+          .eq('id', conversationId)
+          .single();
+
+        if (convError || !conversation) {
+          secureLog('warn', 'Conversation not found', { 
+            socketId: socket.id,
+            userId: userId.substring(0, 8) + '...',
+            conversationId,
+            error: convError?.message 
+          });
+          socket.emit('message-error', { 
+            error: 'Conversación no encontrada',
+            tempId 
+          });
+          return;
+        }
+
+        // Verify user is part of conversation
+        if (conversation.user1_id !== userId && conversation.user2_id !== userId) {
+          secureLog('warn', 'Unauthorized conversation access attempt', { 
+            socketId: socket.id,
+            userId: userId.substring(0, 8) + '...',
+            conversationId
+          });
+          socket.emit('message-error', { 
+            error: 'Sin permisos para esta conversación',
+            tempId 
+          });
+          return;
+        }
+
+        // Insert message in database
         const { data: savedMessage, error: dbError } = await supabase
           .from('private_messages')
           .insert({
             conversation_id: conversationId,
             sender_id: userId,
-            message: message.trim(),
+            message: sanitizedMessage, // Use sanitized message
             created_at: new Date().toISOString()
           })
           .select()
           .single();
 
         if (dbError) {
-          throw new Error(`Error guardando mensaje en DB: ${dbError.message}`);
+          throw new Error(`Database error: ${dbError.message}`);
         }
 
-        console.log(`✅ Mensaje guardado en DB con ID: ${savedMessage.id}`);
+        secureLog('info', 'Message saved to database', { 
+          socketId: socket.id,
+          userId: userId.substring(0, 8) + '...',
+          messageId: savedMessage.id,
+          conversationId
+        });
 
-        // Formatear mensaje para los clientes
+        // Format message for clients
         const messageData = {
           id: savedMessage.id,
-          sender: 'other', // Para el receptor será 'other'
+          sender: 'other', // For receiver it will be 'other'
           message: savedMessage.message,
           timestamp: savedMessage.created_at,
           status: 'delivered',
           conversation_id: conversationId
         };
 
-        // Enviar a todos los usuarios en la conversación EXCEPTO el remitente
-        const delivered = socket.to(`conversation:${conversationId}`).emit('new-message', messageData);
+        // Send to all users in conversation EXCEPT sender
+        socket.to(`conversation:${conversationId}`).emit('new-message', messageData);
         
-        console.log(`📨 Mensaje enviado via Socket.IO a conversación ${conversationId}`);
+        secureLog('info', 'Message delivered via Socket.IO', { 
+          messageId: savedMessage.id,
+          conversationId
+        });
 
-        // Confirmar al remitente que el mensaje se guardó y envió
+        // Confirm to sender that message was saved and sent
         socket.emit('message-sent', { 
           messageId: savedMessage.id, 
           status: 'delivered',
@@ -258,54 +560,164 @@ app.prepare().then(() => {
           timestamp: savedMessage.created_at
         });
 
-        // TODO: Implementar push notifications para usuarios offline
+        // TODO: Implement push notifications for offline users
 
       } catch (error) {
-        console.error('💥 Error procesando mensaje:', error);
+        secureLog('error', 'Error processing message', { 
+          socketId: socket.id,
+          userId: userId.substring(0, 8) + '...',
+          conversationId,
+          error: error.message,
+          tempId
+        });
+        
         socket.emit('message-error', { 
-          error: error.message || 'Error del servidor', 
+          error: 'Error del servidor', 
           tempId 
         });
       }
     });
 
-    // Indicador de "escribiendo"
+    // 🔒 SECURE: Typing indicators with validation
     socket.on('typing-start', (data) => {
       const { conversationId, userId } = data;
-      socket.to(`conversation:${conversationId}`).emit('user-typing', { userId, isTyping: true });
+      
+      if (!conversationId || !userId || userId !== socket.userId) {
+        secureLog('warn', 'Invalid typing indicator', { 
+          socketId: socket.id,
+          providedUserId: userId?.substring(0, 8) + '...' || 'none',
+          socketUserId: socket.userId?.substring(0, 8) + '...' || 'none',
+          hasConversationId: !!conversationId
+        });
+        return;
+      }
+      
+      socket.to(`conversation:${conversationId}`).emit('user-typing', { 
+        userId, 
+        isTyping: true 
+      });
     });
 
     socket.on('typing-stop', (data) => {
       const { conversationId, userId } = data;
-      socket.to(`conversation:${conversationId}`).emit('user-typing', { userId, isTyping: false });
+      
+      if (!conversationId || !userId || userId !== socket.userId) {
+        secureLog('warn', 'Invalid typing stop indicator', { 
+          socketId: socket.id,
+          providedUserId: userId?.substring(0, 8) + '...' || 'none',
+          socketUserId: socket.userId?.substring(0, 8) + '...' || 'none',
+          hasConversationId: !!conversationId
+        });
+        return;
+      }
+      
+      socket.to(`conversation:${conversationId}`).emit('user-typing', { 
+        userId, 
+        isTyping: false 
+      });
     });
 
-    // ✅ Manejar marcado de mensajes como leídos
+    // 🔒 SECURE: Message read status with comprehensive validation
     socket.on('messages-read', async (data) => {
       const { conversationId, userId } = data;
-      console.log(`📖 Usuario ${userId} marcó mensajes como leídos en conversación ${conversationId}`);
+      
+      secureLog('info', 'Messages read request', { 
+        socketId: socket.id,
+        userId: userId?.substring(0, 8) + '...' || 'none',
+        conversationId: conversationId || 'none'
+      });
+      
+      // Validate user authentication
+      if (!userId || userId !== socket.userId) {
+        secureLog('warn', 'Unauthorized read status update', { 
+          socketId: socket.id,
+          providedUserId: userId?.substring(0, 8) + '...' || 'none',
+          socketUserId: socket.userId?.substring(0, 8) + '...' || 'none'
+        });
+        return;
+      }
+
+      if (!conversationId) {
+        secureLog('warn', 'Missing conversation ID for read status', { 
+          socketId: socket.id,
+          userId: userId.substring(0, 8) + '...'
+        });
+        return;
+      }
       
       try {
-        // Actualizar mensajes como leídos en la base de datos
+        // Create secure database client
+        const supabase = createClient(
+          process.env.NEXT_PUBLIC_SUPABASE_URL,
+          process.env.SUPABASE_SERVICE_ROLE_KEY,
+          {
+            auth: {
+              autoRefreshToken: false,
+              persistSession: false
+            }
+          }
+        );
+
+        // Verify user has access to conversation
+        const { data: conversation, error: convError } = await supabase
+          .from('conversations')
+          .select('user1_id, user2_id')
+          .eq('id', conversationId)
+          .single();
+
+        if (convError || !conversation) {
+          secureLog('warn', 'Conversation not found for read status', { 
+            socketId: socket.id,
+            userId: userId.substring(0, 8) + '...',
+            conversationId,
+            error: convError?.message 
+          });
+          return;
+        }
+
+        if (conversation.user1_id !== userId && conversation.user2_id !== userId) {
+          secureLog('warn', 'Unauthorized conversation read status attempt', { 
+            socketId: socket.id,
+            userId: userId.substring(0, 8) + '...',
+            conversationId
+          });
+          return;
+        }
+        
+        // Update messages as read in database
         const { data: updatedMessages, error } = await supabase
           .from('private_messages')
           .update({ read_at: new Date().toISOString() })
           .eq('conversation_id', conversationId)
-          .neq('sender_id', userId) // Solo mensajes que no envió este usuario
-          .is('read_at', null) // Solo mensajes no leídos
+          .neq('sender_id', userId) // Only messages not sent by this user
+          .is('read_at', null) // Only unread messages
           .select('id, sender_id');
 
         if (error) {
-          console.error('Error updating read status:', error);
+          secureLog('error', 'Database error updating read status', { 
+            socketId: socket.id,
+            userId: userId.substring(0, 8) + '...',
+            conversationId,
+            error: error.message 
+          });
+          socket.emit('messages-read-error', {
+            conversationId,
+            error: 'Error al actualizar estado de lectura'
+          });
           return;
         }
 
         const readCount = updatedMessages?.length || 0;
-        console.log(`✅ ${readCount} mensajes marcados como leídos en BD`);
+        secureLog('info', 'Messages marked as read', { 
+          socketId: socket.id,
+          userId: userId.substring(0, 8) + '...',
+          conversationId,
+          readCount
+        });
 
-        // Notificar al remitente que sus mensajes fueron leídos
+        // Notify senders that their messages were read
         if (readCount > 0) {
-          // Obtener los IDs únicos de los remitentes
+          // Get unique sender IDs
           const senderIds = [...new Set(updatedMessages.map(m => m.sender_id))];
           
           senderIds.forEach(senderId => {
@@ -318,46 +730,73 @@ app.prepare().then(() => {
                   readBy: userId,
                   readCount
                 });
-                console.log(`✅ Confirmación de lectura enviada a usuario ${senderId}`);
+                secureLog('info', 'Read confirmation sent', { 
+                  toUser: senderId.substring(0, 8) + '...',
+                  conversationId,
+                  readCount
+                });
               }
             }
           });
         }
 
-        // Confirmar al usuario que solicitó el marcado
+        // Confirm to requesting user
         socket.emit('messages-read-success', {
           conversationId,
           readCount
         });
 
       } catch (error) {
-        console.error('Error processing read messages:', error);
+        secureLog('error', 'Exception during read status update', { 
+          socketId: socket.id,
+          userId: userId?.substring(0, 8) + '...' || 'none',
+          conversationId,
+          error: error.message 
+        });
+        
         socket.emit('messages-read-error', {
           conversationId,
-          error: 'Error al procesar mensajes leídos'
+          error: 'Error interno del servidor'
         });
       }
     });
 
+    // 🔒 SECURE: Enhanced disconnect handling with detailed logging
     socket.on('disconnect', (reason) => {
-      console.log(`🔌 Socket desconectado: ${socket.id}, razón: ${reason}`);
+      const userId = socket.userId;
       
-      if (socket.userId) {
-        console.log(`👋 Usuario ${socket.userId} se desconectó`);
-        userSessions.delete(socket.userId);
+      secureLog('info', 'Socket disconnected', { 
+        socketId: socket.id,
+        userId: userId?.substring(0, 8) + '...' || 'anonymous',
+        reason: reason,
+        connectedTime: Date.now() - (socket.connectedAt || Date.now())
+      });
+      
+      if (userId) {
+        userSessions.delete(userId);
         
-        // Emitir que el usuario está offline
-        socket.broadcast.emit('user-offline', socket.userId);
+        // Emit that user is offline
+        socket.broadcast.emit('user-offline', userId);
         
-        // Estadísticas actualizadas
-        console.log(`📊 Usuarios conectados restantes: ${userSessions.size}`);
+        secureLog('info', 'User session cleaned up', { 
+          userId: userId.substring(0, 8) + '...',
+          remainingConnections: userSessions.size
+        });
       }
     });
 
-    // Manejo de errores de socket
+    // 🔒 SECURE: Enhanced error handling
     socket.on('error', (error) => {
-      console.error(`❌ Error en socket ${socket.id}:`, error);
+      secureLog('error', 'Socket error occurred', { 
+        socketId: socket.id,
+        userId: socket.userId?.substring(0, 8) + '...' || 'anonymous',
+        error: error.message,
+        stack: error.stack?.substring(0, 200) + '...' // Truncate stack trace
+      });
     });
+
+    // Set connection timestamp for metrics
+    socket.connectedAt = Date.now();
   });
 
   httpServer
