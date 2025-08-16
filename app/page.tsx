@@ -5,14 +5,28 @@ import { motion } from "framer-motion";
 import Header from "@/components/landing/Header";
 import Hero from "@/components/landing/Hero";
 
-// Lazy load componentes pesados
+// Lazy load componentes pesados para mejor performance
 const HowItWorksNew = lazy(() => import("@/components/landing/HowItWorksNew"));
 const Differentiators = lazy(() => import("@/components/landing/Differentiators"));
 const Testimonials = lazy(() => import("@/components/landing/Testimonials"));
 const GetStarted = lazy(() => import("@/components/landing/GetStarted"));
 const Footer = lazy(() => import("@/components/landing/Footer"));
 
-export default function Home() {
+// Loading components optimizados
+const SectionSkeleton = ({ className }: { className?: string }) => (
+  <div className={`animate-pulse bg-gray-200 rounded-lg ${className || "h-32"}`}>
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+      <div className="h-8 bg-gray-300 rounded w-1/3 mx-auto mb-8"></div>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {[...Array(3)].map((_, i) => (
+          <div key={i} className="h-24 bg-gray-300 rounded"></div>
+        ))}
+      </div>
+    </div>
+  </div>
+);
+
+export default function LandingPage() {
   // Force scroll to top on page load and smooth scrolling for anchor links
   useEffect(() => {
     // Force scroll to top immediately

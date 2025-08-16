@@ -57,7 +57,7 @@ export default function RegisterPage() {
   // Show loading screen while checking authentication
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50 flex items-center justify-center">
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
         <motion.div
           className="text-center"
           initial={{ opacity: 0, y: 20 }}
@@ -65,15 +65,15 @@ export default function RegisterPage() {
           transition={{ duration: 0.6 }}
         >
           <div className="flex items-center justify-center gap-2 mb-4">
-            <div className="w-10 h-10 bg-gradient-to-r from-blue-600 to-green-500 rounded-xl flex items-center justify-center">
-              <Zap className="w-6 h-6 text-white" />
+            <div className="w-8 h-8 bg-slate-900 rounded-lg flex items-center justify-center">
+              <Zap className="w-5 h-5 text-white" />
             </div>
-            <span className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-green-600 bg-clip-text text-transparent">
+            <span className="text-xl font-semibold text-slate-900">
               StartupMatch
             </span>
           </div>
-          <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-gray-600">Verificando autenticación...</p>
+          <div className="w-6 h-6 border-3 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-slate-600">Verificando autenticación...</p>
         </motion.div>
       </div>
     );
@@ -82,27 +82,27 @@ export default function RegisterPage() {
   // Show dashboard redirect message if user is logged in
   if (user && !loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50 flex items-center justify-center">
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
         <motion.div
-          className="text-center bg-white rounded-2xl shadow-xl p-8 max-w-md w-full mx-4"
+          className="text-center bg-white rounded-lg shadow-sm border border-slate-200 p-8 max-w-md w-full mx-4"
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.6 }}
         >
           <div className="flex items-center justify-center gap-2 mb-4">
-            <div className="w-10 h-10 bg-gradient-to-r from-blue-600 to-green-500 rounded-xl flex items-center justify-center">
-              <Zap className="w-6 h-6 text-white" />
+            <div className="w-8 h-8 bg-slate-900 rounded-lg flex items-center justify-center">
+              <Zap className="w-5 h-5 text-white" />
             </div>
-            <span className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-green-600 bg-clip-text text-transparent">
+            <span className="text-xl font-semibold text-slate-900">
               StartupMatch
             </span>
           </div>
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">¡Ya estás conectado!</h1>
-          <p className="text-gray-600 mb-6">Te estamos redirigiendo a tu dashboard...</p>
-          <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <h1 className="text-xl font-semibold text-slate-900 mb-2">Sesión activa</h1>
+          <p className="text-slate-600 mb-6">Redirigiendo al dashboard...</p>
+          <div className="w-6 h-6 border-3 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
           <Link 
             href="/dashboard" 
-            className="inline-block bg-gradient-to-r from-blue-600 to-green-500 text-white py-2 px-6 rounded-lg font-semibold hover:shadow-lg transform hover:scale-[1.02] transition-all duration-200"
+            className="inline-block bg-blue-600 text-white py-2 px-4 rounded-md font-medium hover:bg-blue-700 transition-colors"
           >
             Ir al Dashboard
           </Link>
@@ -386,16 +386,16 @@ export default function RegisterPage() {
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50">
+    <div className="min-h-screen bg-slate-50">
       {/* Back button */}
-      <div className="absolute top-4 left-4 z-10">
-        <Link href="/" className="flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-colors">
-          <ArrowLeft className="w-4 h-4" />
-          <span className="hidden sm:block text-sm">Volver</span>
+      <div className="absolute top-6 left-6 z-10">
+        <Link href="/" className="flex items-center gap-2 text-slate-600 hover:text-slate-900 transition-colors">
+          <ArrowLeft className="w-5 h-5" />
+          <span className="hidden sm:block">Volver</span>
         </Link>
       </div>
 
-      <div className="flex items-center justify-center min-h-screen px-4 py-6">
+      <div className="flex items-center justify-center min-h-screen px-4 py-8">
         <motion.div
           className="w-full max-w-4xl"
           initial={{ opacity: 0, y: 20 }}
@@ -405,19 +405,19 @@ export default function RegisterPage() {
           {/* Logo */}
           <div className="text-center mb-6">
             <motion.div 
-              className="flex items-center justify-center gap-2 mb-3"
-              whileHover={{ scale: 1.05 }}
+              className="flex items-center justify-center gap-2 mb-4"
+              whileHover={{ scale: 1.02 }}
               transition={{ type: "spring", stiffness: 400, damping: 10 }}
             >
-              <div className="w-8 h-8 bg-gradient-to-r from-blue-600 to-green-500 rounded-lg flex items-center justify-center">
+              <div className="w-8 h-8 bg-slate-900 rounded-lg flex items-center justify-center">
                 <Zap className="w-5 h-5 text-white" />
               </div>
-              <span className="text-xl font-bold bg-gradient-to-r from-blue-600 to-green-600 bg-clip-text text-transparent">
+              <span className="text-xl font-semibold text-slate-900">
                 StartupMatch
               </span>
             </motion.div>
-            <h1 className="text-2xl font-bold text-gray-900 mb-1">Crea tu cuenta</h1>
-            <p className="text-sm text-gray-600">Encuentra tu cofundador ideal en 3 pasos</p>
+            <h1 className="text-2xl font-semibold text-slate-900 mb-2">Crear cuenta</h1>
+            <p className="text-slate-600">Únete a la plataforma</p>
           </div>
 
           {/* Progress bar */}
@@ -426,32 +426,32 @@ export default function RegisterPage() {
               {[1, 2, 3].map((step) => (
                 <div
                   key={step}
-                  className={`flex items-center justify-center w-7 h-7 rounded-full text-sm font-semibold ${
+                  className={`flex items-center justify-center w-8 h-8 rounded-full text-sm font-medium ${
                     currentStep >= step
                       ? "bg-blue-600 text-white"
-                      : "bg-gray-200 text-gray-600"
+                      : "bg-slate-200 text-slate-600"
                   }`}
                 >
                   {step}
                 </div>
               ))}
             </div>
-            <div className="w-full bg-gray-200 rounded-full h-1.5">
+            <div className="w-full bg-slate-200 rounded-full h-2">
               <div
-                className="bg-gradient-to-r from-blue-600 to-green-500 h-1.5 rounded-full transition-all duration-300"
+                className="bg-blue-600 h-2 rounded-full transition-all duration-300"
                 style={{ width: `${(currentStep / 3) * 100}%` }}
               ></div>
             </div>
-            <div className="flex justify-between text-xs text-gray-600 mt-1">
-              <span>Información básica</span>
+            <div className="flex justify-between text-xs text-slate-600 mt-2">
+              <span>Datos básicos</span>
               <span>Perfil profesional</span>
-              <span>Intereses</span>
+              <span>Preferencias</span>
             </div>
           </div>
 
           {/* Form */}
           <motion.div 
-            className="bg-white rounded-xl shadow-lg p-6"
+            className="bg-white rounded-lg shadow-sm border border-slate-200 p-6"
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.6, delay: 0.1 }}
@@ -460,7 +460,7 @@ export default function RegisterPage() {
               {/* General error */}
               {errors.general && (
                 <motion.div
-                  className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm mb-6"
+                  className="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-md text-sm mb-6"
                   initial={{ opacity: 0, y: -10 }}
                   animate={{ opacity: 1, y: 0 }}
                 >
@@ -476,23 +476,23 @@ export default function RegisterPage() {
                   exit={{ opacity: 0, x: -20 }}
                   className="space-y-4"
                 >
-                  <h2 className="text-lg font-semibold text-gray-900 mb-4">Información básica</h2>
+                  <h2 className="text-lg font-semibold text-slate-900 mb-4">Información básica</h2>
                   
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div className="md:col-span-1">
-                      <label htmlFor="firstName" className="block text-sm font-medium text-gray-700 mb-1">
+                      <label htmlFor="firstName" className="block text-sm font-medium text-slate-700 mb-1">
                         Nombre *
                       </label>
                       <div className="relative">
-                        <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                        <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4" />
                         <input
                           type="text"
                           id="firstName"
                           name="firstName"
                           value={formData.firstName}
                           onChange={handleInputChange}
-                          className={`w-full pl-9 pr-3 py-2.5 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors ${
-                            errors.firstName ? "border-red-300 bg-red-50" : "border-gray-300"
+                          className={`w-full pl-9 pr-3 py-2.5 border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors ${
+                            errors.firstName ? "border-red-300 bg-red-50" : "border-slate-300"
                           }`}
                           placeholder="Juan"
                         />
@@ -1095,21 +1095,16 @@ export default function RegisterPage() {
                     <motion.button
                       type="button"
                       onClick={handleNext}
-                      className="flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-blue-600 to-green-500 text-white rounded-lg font-semibold shadow-lg hover:shadow-xl transform hover:scale-[1.02] transition-all duration-200"
-                      whileHover={{ x: 2 }}
+                      className="flex items-center gap-2 px-6 py-2.5 bg-blue-600 text-white rounded-md font-medium hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200"
                       whileTap={{ scale: 0.98 }}
                     >
                       Continuar
-                      <div className="w-4 h-4 bg-white/20 rounded-full flex items-center justify-center">
-                        <ArrowLeft className="w-2.5 h-2.5 rotate-180" />
-                      </div>
                     </motion.button>
                   ) : (
                     <motion.button
                       type="submit"
                       disabled={isLoading}
-                      className="flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-blue-600 to-green-500 text-white rounded-lg font-semibold shadow-lg hover:shadow-xl transform hover:scale-[1.02] transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
-                      whileHover={{ y: -1 }}
+                      className="flex items-center gap-2 px-6 py-2.5 bg-blue-600 text-white rounded-md font-medium hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                       whileTap={{ scale: 0.98 }}
                     >
                       {isLoading ? (
@@ -1118,12 +1113,7 @@ export default function RegisterPage() {
                           Creando cuenta...
                         </>
                       ) : (
-                        <>
-                          <span>¡Crear cuenta!</span>
-                          <div className="w-5 h-5 bg-white/20 rounded-full flex items-center justify-center">
-                            <Zap className="w-3 h-3" />
-                          </div>
-                        </>
+                        "Crear cuenta"
                       )}
                     </motion.button>
                   )}

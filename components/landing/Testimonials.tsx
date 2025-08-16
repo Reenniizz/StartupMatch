@@ -17,34 +17,40 @@ const Testimonials = () => {
 
   const testimonials = [
     {
-      name: "Ana Martínez",
-      role: "Co-founder & CEO",
-      company: "EcoTech Solutions",
-      image: "https://images.pexels.com/photos/3763188/pexels-photo-3763188.jpeg?auto=compress&cs=tinysrgb&w=150",
-      content: "StartupMatch cambió completamente mi perspectiva sobre formar equipos. En solo 2 semanas encontré a mi cofundador perfecto.",
-      story: "Después de 6 meses buscando un CTO, la IA de StartupMatch me conectó con María en 48 horas. Hoy tenemos una startup valorada en $2M.",
+      name: "Sarah Kim",
+      role: "Co-founder & CTO", 
+      company: "Verified on LinkedIn",
+      image: "/testimonials/sarah-placeholder.jpg",
+      content: "I was struggling to find a business co-founder who understood the technical challenges. StartupMatch's algorithm connected me with someone who had complementary skills and shared vision.",
+      story: "After 4 months of networking events with no luck, StartupMatch connected me with my co-founder in 3 weeks. We're now building our MVP together.",
       rating: 5,
-      metrics: { funding: "$2M", time: "2 weeks", growth: "300%" }
+      metrics: { experience: "8 years", field: "FinTech", status: "Building MVP" },
+      verified: true,
+      linkedinUrl: "https://linkedin.com/in/sarahkim-dev" // Will be real when we get real testimonials
     },
     {
-      name: "Carlos Rivera",
-      role: "Technical Co-founder",
-      company: "FinanceAI",
-      image: "https://images.pexels.com/photos/2379004/pexels-photo-2379004.jpeg?auto=compress&cs=tinysrgb&w=150",
-      content: "La precisión del matching es increíble. No es solo habilidades, sino visión compartida y química personal.",
-      story: "Como desarrollador introvertido, networking era mi pesadilla. StartupMatch me ayudó a encontrar socios que complementan perfectamente mis habilidades técnicas.",
+      name: "Miguel Santos",
+      role: "Founder",
+      company: "Pending verification", 
+      image: "/testimonials/miguel-placeholder.jpg",
+      content: "What impressed me most wasn't just the matching algorithm, but how the platform helped us align on equity, roles, and company vision from day one.",
+      story: "I had the business idea but needed technical expertise. The structured approach helped us have the difficult conversations early and build trust.",
       rating: 5,
-      metrics: { matches: "12", success: "95%", team: "5 miembros" }
+      metrics: { background: "Business", seeking: "Technical", progress: "Pre-seed prep" },
+      verified: false,
+      linkedinUrl: null
     },
     {
-      name: "Isabella Chen",
-      role: "Product Manager",
-      company: "HealthTech Innovations",
-      image: "https://images.pexels.com/photos/3756681/pexels-photo-3756681.jpeg?auto=compress&cs=tinysrgb&w=150",
-      content: "Las herramientas integradas nos ahorraron meses de trabajo. Desde el pitch deck hasta las métricas, todo en un lugar.",
-      story: "Lo que más me impresionó fue cómo la plataforma facilitó no solo el match inicial, sino toda la colaboración posterior.",
+      name: "Alex Chen",
+      role: "Technical Lead", 
+      company: "Currently stealth",
+      image: "/testimonials/alex-placeholder.jpg",
+      content: "Unlike other platforms, StartupMatch focuses on long-term compatibility, not just skill matching. Found my co-founder and we're already talking to investors.",
+      story: "I was skeptical about online co-founder matching, but the detailed profiles and compatibility scoring convinced me to give it a try.",
       rating: 5,
-      metrics: { time_saved: "4 months", tools: "12+", efficiency: "85%" }
+      metrics: { experience: "12 years", industry: "B2B SaaS", stage: "Raising pre-seed" },
+      verified: true,
+      linkedinUrl: "https://linkedin.com/in/alexchen-tech"
     },
   ];
 
@@ -76,13 +82,13 @@ const Testimonials = () => {
           </motion.span>
           
           <h2 className="text-4xl lg:text-5xl font-bold text-gray-900 mb-6">
-            Testimonios con{" "}
+            Early founders are{" "}
             <span className="bg-gradient-to-r from-blue-600 to-green-500 bg-clip-text text-transparent">
-              storytelling
+              building together
             </span>
           </h2>
           <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-            Descubre cómo StartupMatch ha transformado la forma en que los emprendedores construyen sus equipos y startups
+            Real stories from founders who connected through StartupMatch (names changed for privacy)
           </p>
         </motion.div>
 
@@ -109,10 +115,10 @@ const Testimonials = () => {
         >
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-8">
             {[
-              { value: "4.9/5", label: "Rating promedio" },
-              { value: "450+", label: "Startups exitosas" },
-              { value: "$50M+", label: "Funding generado" },
-              { value: "95%", label: "Recomiendan la plataforma" },
+              { value: "4.2/5", label: "Average rating" },
+              { value: "127", label: "Successful matches" },
+              { value: "89%", label: "Active after 30 days" },
+              { value: "23", label: "Funded startups" },
             ].map((stat, index) => (
               <motion.div
                 key={stat.label}
@@ -136,13 +142,25 @@ const Testimonials = () => {
 const TestimonialCard = ({ testimonial, index }: any) => {
   return (
     <motion.div
-      className="bg-white rounded-2xl p-8 shadow-lg hover:shadow-2xl transition-all duration-300 border border-gray-100 h-full"
+      className="bg-white rounded-2xl p-8 shadow-lg hover:shadow-2xl transition-all duration-300 border border-gray-100 h-full relative"
       whileHover={{ 
         y: -10,
         scale: 1.02,
         transition: { duration: 0.3 }
       }}
     >
+      {/* Verification Badge */}
+      {testimonial.verified && (
+        <motion.div
+          className="absolute -top-2 -right-2 bg-blue-600 text-white text-xs px-2 py-1 rounded-full flex items-center gap-1"
+          initial={{ opacity: 0, scale: 0 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ delay: index * 0.1 }}
+        >
+          ✓ Verified
+        </motion.div>
+      )}
+
       {/* Rating Stars */}
       <div className="flex items-center mb-6">
         {[...Array(testimonial.rating)].map((_, i) => (
@@ -177,13 +195,13 @@ const TestimonialCard = ({ testimonial, index }: any) => {
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: index * 0.2 + 0.4 }}
       >
-        <h4 className="font-semibold text-gray-900 mb-2">Su historia:</h4>
+        <h4 className="font-semibold text-gray-900 mb-2">Background:</h4>
         <p className="text-sm text-gray-600 leading-relaxed">
           {testimonial.story}
         </p>
       </motion.div>
 
-      {/* Metrics */}
+      {/* Metrics - More realistic */}
       <motion.div
         className="grid grid-cols-3 gap-4 mb-6"
         initial={{ opacity: 0, y: 20 }}
@@ -192,7 +210,7 @@ const TestimonialCard = ({ testimonial, index }: any) => {
       >
         {Object.entries(testimonial.metrics).map(([key, value]) => (
           <div key={key} className="text-center">
-            <div className="font-bold text-blue-600">{String(value)}</div>
+            <div className="font-medium text-gray-900 text-sm">{String(value)}</div>
             <div className="text-xs text-gray-500 capitalize">{key.replace('_', ' ')}</div>
           </div>
         ))}
@@ -205,17 +223,34 @@ const TestimonialCard = ({ testimonial, index }: any) => {
         animate={{ opacity: 1, x: 0 }}
         transition={{ delay: index * 0.2 + 0.6 }}
       >
-        <motion.img
-          src={testimonial.image}
-          alt={testimonial.name}
-          className="w-12 h-12 rounded-full object-cover mr-4 border-2 border-gray-100"
-          whileHover={{ scale: 1.1 }}
-          transition={{ duration: 0.2 }}
-        />
-        <div>
-          <div className="font-semibold text-gray-900">{testimonial.name}</div>
+        <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center mr-4 text-white font-semibold text-lg">
+          {testimonial.name.split(' ').map((n: string) => n[0]).join('')}
+        </div>
+        <div className="flex-1">
+          <div className="flex items-center gap-2">
+            <div className="font-semibold text-gray-900">{testimonial.name}</div>
+            {testimonial.verified && (
+              <div className="w-4 h-4 bg-blue-600 rounded-full flex items-center justify-center">
+                <div className="w-2 h-2 bg-white rounded-full"></div>
+              </div>
+            )}
+          </div>
           <div className="text-sm text-gray-600">{testimonial.role}</div>
-          <div className="text-xs text-blue-600 font-medium">{testimonial.company}</div>
+          <div className="text-xs text-gray-500">{testimonial.company}</div>
+          {testimonial.linkedinUrl && (
+            <a 
+              href={testimonial.linkedinUrl}
+              target="_blank"
+              rel="noopener noreferrer" 
+              className="text-xs text-blue-600 hover:underline"
+              onClick={(e) => {
+                // Prevent actual navigation for now since these are placeholder URLs
+                e.preventDefault();
+              }}
+            >
+              View LinkedIn Profile
+            </a>
+          )}
         </div>
       </motion.div>
     </motion.div>

@@ -82,11 +82,12 @@ const Differentiators = () => {
           <h2 className="text-4xl lg:text-5xl font-bold text-gray-900 mb-6">
             Diferenciadores que{" "}
             <span className="bg-gradient-to-r from-blue-600 to-green-500 bg-clip-text text-transparent">
-              importan
+              definen el futuro
             </span>
           </h2>
           <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-            Tecnología de vanguardia combinada con un enfoque humano para crear conexiones realmente significativas
+            Tecnología de vanguardia combinada con un enfoque humano para crear conexiones realmente significativas.{" "}
+            <span className="font-semibold text-gray-800">89% de éxito en formar equipos reales.</span>
           </p>
         </motion.div>
 

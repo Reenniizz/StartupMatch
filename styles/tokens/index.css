@@ -1,0 +1,323 @@
+/* 🎨 StartupMatch Design Tokens - Main Entry Point
+ * Unified design system for consistent visual identity
+ * Import all token categories in correct order
+ */
+
+/* Core Design Tokens - Load in dependency order */
+@import './colors.css';      /* Color palette and semantic aliases */
+@import './typography.css';  /* Font system and text styles */
+@import './spacing.css';     /* Spacing scale and layout utilities */
+@import './components.css';  /* Component patterns and variants */
+
+/* Global Resets and Improvements */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  font-family: var(--font-sans);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+body {
+  font-family: var(--font-sans);
+  font-size: var(--text-body-base-size);
+  line-height: var(--text-body-base-line-height);
+  color: var(--text-primary);
+  background-color: var(--bg-primary);
+  min-height: 100vh;
+  scroll-behavior: smooth;
+}
+
+/* Focus Management for Accessibility */
+:focus {
+  outline: 2px solid var(--color-primary-500);
+  outline-offset: 2px;
+}
+
+:focus:not(:focus-visible) {
+  outline: none;
+}
+
+/* Improved Link Styles */
+a {
+  color: var(--color-primary-600);
+  text-decoration: none;
+  transition: color var(--duration-fast) var(--ease-out);
+}
+
+a:hover {
+  color: var(--color-primary-700);
+  text-decoration: underline;
+}
+
+a:focus {
+  outline: 2px solid var(--color-primary-500);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+/* Improved Button Reset */
+button {
+  font-family: inherit;
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  padding: 0;
+  font-size: inherit;
+}
+
+/* Improved Form Element Styles */
+input,
+textarea,
+select {
+  font-family: inherit;
+  font-size: inherit;
+  line-height: inherit;
+}
+
+/* Image Improvements */
+img {
+  max-width: 100%;
+  height: auto;
+  display: block;
+}
+
+/* Better HR Styling */
+hr {
+  border: none;
+  height: 1px;
+  background: var(--border-default);
+  margin: var(--space-section-sm) 0;
+}
+
+/* Improved List Styling */
+ul,
+ol {
+  list-style: none;
+}
+
+/* Table Improvements */
+table {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+/* Scroll Behavior */
+html {
+  scroll-behavior: smooth;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* High Contrast Mode Adjustments */
+@media (prefers-contrast: high) {
+  .btn-primary {
+    border: 2px solid var(--text-white);
+  }
+  
+  .btn-secondary {
+    border: 2px solid var(--text-primary);
+  }
+}
+
+/* Print Styles */
+@media print {
+  * {
+    background: transparent !important;
+    color: black !important;
+    box-shadow: none !important;
+    text-shadow: none !important;
+  }
+  
+  a,
+  a:visited {
+    text-decoration: underline;
+  }
+  
+  img {
+    max-width: 100% !important;
+  }
+  
+  .btn,
+  .card {
+    border: 1px solid #999;
+    page-break-inside: avoid;
+  }
+}
+
+/* Utility Classes for Common Patterns */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.focus-visible-only:focus:not(:focus-visible) {
+  outline: none;
+  box-shadow: none;
+}
+
+.truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.clamp-3 {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Layout Utilities */
+.flex {
+  display: flex;
+}
+
+.flex-col {
+  flex-direction: column;
+}
+
+.items-center {
+  align-items: center;
+}
+
+.justify-center {
+  justify-content: center;
+}
+
+.justify-between {
+  justify-content: space-between;
+}
+
+.flex-1 {
+  flex: 1 1 0%;
+}
+
+.grid {
+  display: grid;
+}
+
+.hidden {
+  display: none;
+}
+
+/* Responsive Utilities */
+@media (max-width: 639px) {
+  .sm\:hidden {
+    display: none;
+  }
+  
+  .sm\:block {
+    display: block;
+  }
+}
+
+@media (min-width: 640px) {
+  .sm\:flex {
+    display: flex;
+  }
+  
+  .sm\:hidden {
+    display: none;
+  }
+}
+
+@media (min-width: 768px) {
+  .md\:flex {
+    display: flex;
+  }
+  
+  .md\:hidden {
+    display: none;
+  }
+  
+  .md\:block {
+    display: block;
+  }
+}
+
+@media (min-width: 1024px) {
+  .lg\:flex {
+    display: flex;
+  }
+  
+  .lg\:hidden {
+    display: none;
+  }
+  
+  .lg\:block {
+    display: block;
+  }
+}
+
+/* Animation Utilities */
+.transition {
+  transition-property: color, background-color, border-color, text-decoration-color, fill, stroke, opacity, box-shadow, transform, filter, backdrop-filter;
+  transition-timing-function: var(--ease-out);
+  transition-duration: var(--duration-base);
+}
+
+.transition-colors {
+  transition-property: color, background-color, border-color, text-decoration-color, fill, stroke;
+  transition-timing-function: var(--ease-out);
+  transition-duration: var(--duration-base);
+}
+
+.transition-transform {
+  transition-property: transform;
+  transition-timing-function: var(--ease-out);
+  transition-duration: var(--duration-base);
+}
+
+.duration-fast {
+  transition-duration: var(--duration-fast);
+}
+
+.duration-slow {
+  transition-duration: var(--duration-slow);
+}
+
+.ease-out {
+  transition-timing-function: var(--ease-out);
+}
+
+.ease-in-out {
+  transition-timing-function: var(--ease-in-out);
+}

@@ -1,0 +1,187 @@
+/* 🎨 StartupMatch Design Tokens - Colors
+ * Unified color system for consistent visual identity
+ * Mobile-first, accessible, and scalable
+ */
+
+:root {
+  /* Primary Brand Colors - Blue gradient system */
+  --color-primary-50: #eff6ff;
+  --color-primary-100: #dbeafe;
+  --color-primary-200: #bfdbfe;
+  --color-primary-300: #93c5fd;
+  --color-primary-400: #60a5fa;
+  --color-primary-500: #3b82f6;  /* Main Primary */
+  --color-primary-600: #2563eb;
+  --color-primary-700: #1d4ed8;
+  --color-primary-800: #1e40af;
+  --color-primary-900: #1e3a8a;
+
+  /* Secondary Brand Colors - Purple gradient system */  
+  --color-secondary-50: #faf5ff;
+  --color-secondary-100: #f3e8ff;
+  --color-secondary-200: #e9d5ff;
+  --color-secondary-300: #d8b4fe;
+  --color-secondary-400: #c084fc;
+  --color-secondary-500: #a855f7;
+  --color-secondary-600: #9333ea;  /* Main Secondary */
+  --color-secondary-700: #7c3aed;
+  --color-secondary-800: #6b21a8;
+  --color-secondary-900: #581c87;
+
+  /* Success States - Green system */
+  --color-success-50: #f0fdf4;
+  --color-success-100: #dcfce7;
+  --color-success-200: #bbf7d0;
+  --color-success-300: #86efac;
+  --color-success-400: #4ade80;
+  --color-success-500: #22c55e;  /* Main Success */
+  --color-success-600: #16a34a;
+  --color-success-700: #15803d;
+  --color-success-800: #166534;
+  --color-success-900: #14532d;
+
+  /* Warning States - Amber system */
+  --color-warning-50: #fffbeb;
+  --color-warning-100: #fef3c7;
+  --color-warning-200: #fde68a;
+  --color-warning-300: #fcd34d;
+  --color-warning-400: #fbbf24;
+  --color-warning-500: #f59e0b;  /* Main Warning */
+  --color-warning-600: #d97706;
+  --color-warning-700: #b45309;
+  --color-warning-800: #92400e;
+  --color-warning-900: #78350f;
+
+  /* Error States - Red system */
+  --color-error-50: #fef2f2;
+  --color-error-100: #fee2e2;
+  --color-error-200: #fecaca;
+  --color-error-300: #fca5a5;
+  --color-error-400: #f87171;
+  --color-error-500: #ef4444;  /* Main Error */
+  --color-error-600: #dc2626;
+  --color-error-700: #b91c1c;
+  --color-error-800: #991b1b;
+  --color-error-900: #7f1d1d;
+
+  /* Neutral Grays - Professional palette */
+  --color-gray-50: #f9fafb;
+  --color-gray-100: #f3f4f6;
+  --color-gray-200: #e5e7eb;
+  --color-gray-300: #d1d5db;
+  --color-gray-400: #9ca3af;
+  --color-gray-500: #6b7280;
+  --color-gray-600: #4b5563;
+  --color-gray-700: #374151;
+  --color-gray-800: #1f2937;
+  --color-gray-900: #111827;
+
+  /* Slate - Alternative gray for UI elements */
+  --color-slate-50: #f8fafc;
+  --color-slate-100: #f1f5f9;
+  --color-slate-200: #e2e8f0;
+  --color-slate-300: #cbd5e1;
+  --color-slate-400: #94a3b8;
+  --color-slate-500: #64748b;
+  --color-slate-600: #475569;
+  --color-slate-700: #334155;
+  --color-slate-800: #1e293b;
+  --color-slate-900: #0f172a;
+
+  /* Brand Gradient Definitions */
+  --gradient-brand-primary: linear-gradient(135deg, var(--color-primary-500) 0%, var(--color-secondary-600) 100%);
+  --gradient-brand-secondary: linear-gradient(135deg, var(--color-primary-600) 0%, var(--color-secondary-700) 100%);
+  --gradient-brand-subtle: linear-gradient(135deg, var(--color-primary-50) 0%, var(--color-secondary-50) 100%);
+  
+  /* Success Gradient */
+  --gradient-success: linear-gradient(135deg, var(--color-success-500) 0%, var(--color-success-700) 100%);
+  --gradient-success-subtle: linear-gradient(135deg, var(--color-success-50) 0%, var(--color-success-100) 100%);
+  
+  /* Background Gradients */
+  --gradient-subtle-bg: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  --gradient-hero-bg: linear-gradient(135deg, var(--color-primary-50) 0%, var(--color-secondary-50) 50%, var(--color-gray-50) 100%);
+}
+
+/* Semantic Color Aliases - Context-aware naming */
+:root {
+  /* Text Colors */
+  --text-primary: var(--color-gray-900);
+  --text-secondary: var(--color-gray-600);
+  --text-muted: var(--color-gray-500);
+  --text-disabled: var(--color-gray-400);
+  --text-white: #ffffff;
+  --text-inverse: var(--color-white);
+
+  /* Background Colors */
+  --bg-primary: #ffffff;
+  --bg-secondary: var(--color-gray-50);
+  --bg-muted: var(--color-gray-100);
+  --bg-accent: var(--color-primary-50);
+  --bg-dark: var(--color-gray-900);
+
+  /* Border Colors */
+  --border-default: var(--color-gray-200);
+  --border-muted: var(--color-gray-100);
+  --border-accent: var(--color-primary-200);
+  --border-error: var(--color-error-300);
+  --border-success: var(--color-success-300);
+
+  /* Interactive Colors */
+  --interactive-primary: var(--color-primary-600);
+  --interactive-primary-hover: var(--color-primary-700);
+  --interactive-secondary: var(--color-gray-100);
+  --interactive-secondary-hover: var(--color-gray-200);
+
+  /* Shadow Colors */
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow-base: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  --shadow-2xl: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  --shadow-primary: 0 4px 14px 0 rgba(59, 130, 246, 0.25);
+  --shadow-success: 0 4px 14px 0 rgba(34, 197, 94, 0.25);
+}
+
+/* Dark Mode Support (Future-ready) */
+@media (prefers-color-scheme: dark) {
+  :root {
+    /* Override for dark mode when implemented */
+    --text-primary: var(--color-gray-100);
+    --text-secondary: var(--color-gray-300);
+    --bg-primary: var(--color-gray-900);
+    --bg-secondary: var(--color-gray-800);
+    --border-default: var(--color-gray-700);
+  }
+}
+
+/* High Contrast Mode Support */
+@media (prefers-contrast: high) {
+  :root {
+    --text-primary: #000000;
+    --text-secondary: #333333;
+    --border-default: #666666;
+  }
+}
+
+/* Utility Classes for Common Color Patterns */
+.text-gradient-brand {
+  background: var(--gradient-brand-primary);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  color: transparent;
+  font-weight: 700;
+}
+
+.bg-gradient-brand {
+  background: var(--gradient-brand-primary);
+}
+
+.bg-gradient-success {
+  background: var(--gradient-success);
+}
+
+.bg-gradient-subtle {
+  background: var(--gradient-subtle-bg);
+}
