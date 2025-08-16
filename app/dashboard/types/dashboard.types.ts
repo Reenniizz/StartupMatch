@@ -131,6 +131,29 @@ export interface StatsCardData {
 // === HOOK RETURN TYPES ===
 
 export interface UseDashboardStateReturn {
+  // Data
+  stats: DashboardStats;
+  activities: ActivityItem[];
+  groups: PopularGroup[];
+  sidebarItems: SidebarItem[];
+  quickActions: QuickAction[];
+  
+  // Loading states
+  statsLoading: boolean;
+  activitiesLoading: boolean;
+  groupsLoading: boolean;
+  
+  // User menu state
+  userMenuOpen: boolean;
+  setUserMenuOpen: (open: boolean) => void;
+  
+  // Active section
+  activeSection: string;
+  
+  // Sign out handler
+  handleSignOut: () => Promise<void>;
+  
+  // Original state and actions for backward compatibility
   state: DashboardState;
   actions: {
     setSidebarCollapsed: (collapsed: boolean) => void;
@@ -148,13 +171,16 @@ export interface UseThemeReturn {
   isDarkMode: boolean;
   mode: ThemeMode;
   toggle: () => void;
+  toggleTheme: () => void; // alias for toggle
   setMode: (mode: ThemeMode) => void;
 }
 
 export interface UseSidebarReturn {
   collapsed: boolean;
+  isCollapsed: boolean; // alias for collapsed
   activeSection: string;
   toggle: () => void;
+  toggleSidebar: () => void; // alias for toggle
   setCollapsed: (collapsed: boolean) => void;
   setActiveSection: (section: string) => void;
 }

@@ -94,7 +94,142 @@ export function useDashboardState(): UseDashboardStateReturn {
     }));
   }, []);
 
+  // Mock data for now - replace with real API calls
+  const mockStats = {
+    connections: {
+      total: 247,
+      weeklyChange: 12,
+      weeklyChangeText: '+12% vs semana anterior'
+    },
+    matches: {
+      total: 18,
+      dailyNew: 5,
+      dailyNewText: '+5 nuevos hoy'
+    },
+    conversations: {
+      total: 1284,
+      unread: 8,
+      unreadText: '8 sin leer'
+    },
+    successRate: {
+      percentage: 89,
+      change: 3,
+      changeText: '+3% vs mes anterior'
+    },
+  };
+
+  const mockActivities = [
+    { 
+      id: '1', 
+      type: 'match' as const, 
+      title: 'Nuevo match perfecto', 
+      description: 'María G. busca co-founder técnico', 
+      timestamp: 'hace 2 min',
+      timeAgo: 'hace 2 min',
+      icon: 'heart',
+      color: 'blue' as const,
+      badge: 'Nuevo'
+    },
+    { 
+      id: '2', 
+      type: 'message' as const, 
+      title: 'Mensaje recibido', 
+      description: '"¡Hola! Me interesa tu proyecto..."', 
+      timestamp: 'hace 15 min',
+      timeAgo: 'hace 15 min',
+      icon: 'message',
+      color: 'green' as const
+    },
+  ];
+
+  const mockSidebarItems = [
+    { id: "dashboard", label: "Dashboard", icon: "Home", href: "/dashboard" },
+    { id: "matches", label: "Matches", icon: "Heart", href: "/matches" },
+    { id: "grupos", label: "Grupos", icon: "Users", href: "/grupos", badge: "5" },
+    { id: "explore", label: "Explorar", icon: "Search", href: "/explore" },
+    { id: "messages", label: "Mensajes", icon: "MessageSquare", href: "/messages", badge: "3" },
+    { id: "projects", label: "Mis Proyectos", icon: "Rocket", href: "/projects" },
+  ];
+
+  const mockQuickActions = [
+    { 
+      id: 'matches', 
+      title: 'Explorar Matches', 
+      description: 'Encuentra personas compatibles con tus objetivos',
+      icon: 'Heart',
+      color: 'purple' as const,
+      href: '/matches'
+    },
+    { 
+      id: 'projects', 
+      title: 'Crear Proyecto', 
+      description: 'Comparte tu idea y encuentra co-fundadores',
+      icon: 'Rocket',
+      color: 'blue' as const,
+      href: '/projects'
+    },
+    { 
+      id: 'profile', 
+      title: 'Completar Perfil', 
+      description: 'Optimiza tu perfil para mejores matches',
+      icon: 'User',
+      color: 'green' as const,
+      href: '/profile'
+    },
+  ];
+
+  const mockGroups = [
+    { 
+      id: '1', 
+      name: 'Fintech España', 
+      memberCount: 1247,
+      status: 'Activo' as const,
+      initials: 'FE',
+      gradient: 'from-blue-500 to-purple-500',
+      recentMessages: 124
+    },
+    { 
+      id: '2', 
+      name: 'IA & Machine Learning', 
+      memberCount: 892,
+      status: 'Miembro' as const,
+      initials: 'IA',
+      gradient: 'from-green-500 to-teal-500',
+      recentMessages: 89
+    },
+  ];
+
   return {
+    // Data
+    stats: mockStats,
+    activities: mockActivities,
+    groups: mockGroups,
+    sidebarItems: mockSidebarItems,
+    quickActions: mockQuickActions,
+    
+    // Loading states
+    statsLoading: state.loading.stats,
+    activitiesLoading: state.loading.activity,
+    groupsLoading: state.loading.groups,
+    
+    // User menu state
+    userMenuOpen: state.userMenu.isOpen,
+    setUserMenuOpen,
+    
+    // Active section
+    activeSection: state.sidebar.activeSection,
+    
+    // Sign out handler
+    handleSignOut: async () => {
+      try {
+        // Add your sign out logic here
+        console.log('Signing out...');
+      } catch (error) {
+        console.error('Error signing out:', error);
+      }
+    },
+    
+    // Original state and actions for backward compatibility
     state,
     actions: {
       setSidebarCollapsed,

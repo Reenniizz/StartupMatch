@@ -47,6 +47,7 @@ export function useTheme(): UseThemeReturn {
     mode,
     isDarkMode: mode === 'dark',
     toggle,
+    toggleTheme: toggle, // alias
     setMode,
   };
 }

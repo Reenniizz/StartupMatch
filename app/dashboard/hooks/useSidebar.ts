@@ -24,8 +24,10 @@ export function useSidebar(): UseSidebarReturn {
 
   return {
     collapsed,
+    isCollapsed: collapsed, // alias
     activeSection,
     toggle,
+    toggleSidebar: toggle, // alias
     setCollapsed,
     setActiveSection,
   };
