@@ -26,9 +26,10 @@ export const useSocketIO = ({
   const reconnectAttempts = useRef(0);
   const maxReconnectAttempts = 5;
 
-  // Obtener usuario de Supabase
+  // Obtener usuario de Supabase de forma segura
   useEffect(() => {
     const getUser = async () => {
+      // ✅ SECURE: Use getUser() instead of getSession()
       const { data: { user }, error } = await supabase.auth.getUser();
       if (error) {
         console.error('Error getting user:', error);
@@ -39,9 +40,16 @@ export const useSocketIO = ({
 
     getUser();
 
-    // Escuchar cambios de auth
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event: AuthChangeEvent, session: Session | null) => {
-      setUser(session?.user || null);
+    // ⚠️ WARNING: onAuthStateChange session may not be secure
+    // Re-validate user when auth state changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event: AuthChangeEvent, session: Session | null) => {
+      if (session?.user) {
+        // Re-validate for security
+        const { data: { user }, error } = await supabase.auth.getUser();
+        setUser(error ? null : user);
+      } else {
+        setUser(null);
+      }
     });
 
     return () => subscription.unsubscribe();

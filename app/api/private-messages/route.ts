@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServer } from '@/lib/supabase-server';
 import { formatMadridTime } from '@/lib/timezone';
+import { requireAuth } from '@/lib/auth-utils';
 
 export async function GET(request: NextRequest) {
   try {
@@ -9,18 +10,13 @@ export async function GET(request: NextRequest) {
     const conversationId = searchParams.get('conversationId');
     const afterId = searchParams.get('after'); // Para polling de nuevos mensajes
 
-    // Verificar autenticación
-    const { data: { session }, error: authError } = await supabase.auth.getSession();
-    
-    if (authError || !session?.user) {
-      return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
-    }
+    // ✅ SECURE AUTHENTICATION: Use getUser() instead of getSession()
+    const user = await requireAuth(request);
+    const userId = user.id;
 
     if (!conversationId) {
       return NextResponse.json({ error: 'ID de conversación requerido' }, { status: 400 });
     }
-
-    const userId = session.user.id;
 
     // Verificar que el usuario es parte de la conversación
     const { data: conversation, error: convError } = await supabase
@@ -80,14 +76,10 @@ export async function POST(request: NextRequest) {
   try {
     const supabase = await createSupabaseServer();
     
-    // Verificar autenticación
-    const { data: { session }, error: authError } = await supabase.auth.getSession();
-    
-    if (authError || !session?.user) {
-      return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
-    }
+    // ✅ SECURE AUTHENTICATION: Use getUser() instead of getSession()
+    const user = await requireAuth(request);
+    const userId = user.id;
 
-    const userId = session.user.id;
     const body = await request.json();
     const { conversationId, message, socketMessageId } = body;
 

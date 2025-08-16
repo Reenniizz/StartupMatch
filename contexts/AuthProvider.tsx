@@ -29,28 +29,56 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     setIsClient(true);
     
-    // Get initial session
-    supabase.auth.getSession().then(({ data: { session }, error }) => {
-      if (error) {
-        console.warn('Error al obtener sesión inicial:', error);
+    // ✅ SECURE: Get initial user with validation
+    const initializeAuth = async () => {
+      try {
+        // Use getUser() for secure authentication check
+        const { data: { user }, error } = await supabase.auth.getUser();
+        
+        if (error) {
+          console.warn('Error al validar usuario inicial:', error);
+          setUser(null);
+          setSession(null);
+        } else {
+          setUser(user);
+          // If user exists, also get session for UI state
+          const { data: { session } } = await supabase.auth.getSession();
+          setSession(session);
+        }
+      } catch (error) {
+        console.error('Error de red al validar usuario:', error);
+        setUser(null);
+        setSession(null);
+      } finally {
+        setLoading(false);
       }
-      setSession(session);
-      setUser(session?.user ?? null);
-      setLoading(false);
-    }).catch((error) => {
-      console.error('Error de red al obtener sesión:', error);
-      setSession(null);
-      setUser(null);
-      setLoading(false);
-    });
+    };
+
+    initializeAuth();
 
     // Listen for auth changes
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
       console.log('Auth state change:', event, session?.user?.email);
-      setSession(session);
-      setUser(session?.user ?? null);
+      
+      // ⚠️ WARNING: session from onAuthStateChange may not be secure
+      // For critical operations, always use getUser() to validate
+      if (session?.user) {
+        // Re-validate user for security
+        const { data: { user }, error } = await supabase.auth.getUser();
+        if (!error && user) {
+          setUser(user);
+          setSession(session); // Use session only for UI state
+        } else {
+          setUser(null);
+          setSession(null);
+        }
+      } else {
+        setUser(null);
+        setSession(null);
+      }
+      
       setLoading(false);
     });
 
