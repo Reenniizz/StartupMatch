@@ -154,15 +154,42 @@ export function useActiveChat(): UseActiveChatReturn {
 
   const loadMessages = useCallback(async (conversationId: string | number) => {
     setLoadingMessages(true);
+    setError(null);
+    
     try {
-      // Simulate loading messages
-      await new Promise(resolve => setTimeout(resolve, 300));
-      const conversationMessages = mockMessages.filter(
-        msg => msg.conversationId === conversationId
-      );
-      setMessages(conversationMessages);
+      // Real API call to load messages
+      const response = await fetch(`/api/private-messages?conversationId=${conversationId}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Error al cargar mensajes');
+      }
+
+      const messagesData = await response.json();
+      
+      // Transform API data to match our Message interface
+      const formattedMessages: Message[] = messagesData.map((msg: any, index: number) => ({
+        id: msg.id || index,
+        conversationId,
+        senderId: msg.sender === 'me' ? 'current-user' : 'other-user',
+        senderName: msg.sender === 'me' ? 'Tú' : 'Usuario',
+        content: msg.message,
+        timestamp: msg.timestamp,
+        type: 'text',
+        status: msg.status || 'delivered',
+        edited: false
+      }));
+
+      setMessages(formattedMessages);
     } catch (err) {
-      setError('Error al cargar mensajes');
+      const errorMessage = err instanceof Error ? err.message : 'Error al cargar mensajes';
+      setError(errorMessage);
+      console.error('Error loading messages:', err);
     } finally {
       setLoadingMessages(false);
     }
@@ -203,6 +230,20 @@ export function useActiveChat(): UseActiveChatReturn {
     return () => clearTimeout(cleanup);
   }, [typingUsers]);
 
+  // Polling for new messages every 3 seconds when there's an active conversation
+  useEffect(() => {
+    if (!activeConversation) return;
+
+    const pollInterval = setInterval(() => {
+      // Only poll if we're not currently loading messages
+      if (!loadingMessages) {
+        loadMessages(activeConversation.id);
+      }
+    }, 3000);
+
+    return () => clearInterval(pollInterval);
+  }, [activeConversation, loadingMessages, loadMessages]);
+
   return {
     activeConversation,
     messages,
@@ -212,6 +253,7 @@ export function useActiveChat(): UseActiveChatReturn {
     loadMessages,
     loadMoreMessages,
     markMessagesAsRead,
+    addMessage,
     setTyping
   };
 }

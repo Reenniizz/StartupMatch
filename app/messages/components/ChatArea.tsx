@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { ChatAreaProps, Message, AnyConversation } from '../types/messages.types';
 import { ChatHeader } from './ChatHeader';
 import { MessageItem } from './MessageItem';
@@ -10,7 +10,7 @@ import { cn } from '@/lib/utils';
 
 /**
  * Área principal de chat con mensajes y input
- * Incluye scroll automático y virtualización para listas grandes
+ * Incluye scroll inteligente y control manual del scroll
  */
 export function ChatArea({
   conversation,
@@ -22,20 +22,56 @@ export function ChatArea({
 }: ChatAreaProps & { className?: string }) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const [previousMessageCount, setPreviousMessageCount] = useState(0);
+  const [isUserScrolledUp, setIsUserScrolledUp] = useState(false);
+  const [showScrollToBottom, setShowScrollToBottom] = useState(false);
 
-  // Auto scroll to bottom when new messages arrive
+  // Check if user has scrolled up from bottom
+  const handleScroll = () => {
+    const container = messagesContainerRef.current;
+    if (container) {
+      const { scrollTop, scrollHeight, clientHeight } = container;
+      const isAtBottom = scrollTop + clientHeight >= scrollHeight - 100; // 100px threshold
+      setIsUserScrolledUp(!isAtBottom);
+      setShowScrollToBottom(!isAtBottom && messages.length > 0);
+    }
+  };
+
+  // Smart scroll behavior: only scroll to bottom when sending new messages
   useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
+    // If this is initial load (messages just loaded)
+    if (messages.length > 0 && previousMessageCount === 0) {
+      // Position at a comfortable reading position (not all the way down)
+      setTimeout(() => {
+        const container = messagesContainerRef.current;
+        if (container) {
+          const { scrollHeight, clientHeight } = container;
+          // Scroll to 80% down instead of 100%
+          container.scrollTop = Math.max(0, (scrollHeight - clientHeight) * 0.8);
+        }
+      }, 100);
+    }
+    // If this is a new message being added (not initial load)
+    else if (messages.length > previousMessageCount && previousMessageCount > 0) {
+      // Only auto-scroll if user hasn't scrolled up
+      if (!isUserScrolledUp) {
+        scrollToBottom('smooth');
+      }
+    }
+    setPreviousMessageCount(messages.length);
+  }, [messages, previousMessageCount, isUserScrolledUp]);
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  const scrollToBottom = (behavior: ScrollBehavior = 'auto') => {
+    messagesEndRef.current?.scrollIntoView({ behavior });
+    setIsUserScrolledUp(false);
+    setShowScrollToBottom(false);
   };
 
   const handleSendMessage = async (content: string) => {
     try {
       await onSendMessage(content);
-      scrollToBottom();
+      // Always scroll to bottom when sending a message
+      setTimeout(() => scrollToBottom('smooth'), 100);
     } catch (error) {
       console.error('Error sending message:', error);
     }
@@ -50,19 +86,22 @@ export function ChatArea({
   }
 
   return (
-    <div className={cn("flex-1 flex flex-col bg-white dark:bg-gray-800", className)}>
+    <div className={cn("flex-1 flex flex-col h-full bg-white dark:bg-gray-800 relative", className)}>
       {/* Chat Header */}
-      <ChatHeader
-        conversation={conversation}
-        onBack={() => console.log('Go back')}
-        onCall={() => console.log('Start call')}
-        onVideoCall={() => console.log('Start video call')}
-      />
+      <div className="flex-shrink-0">
+        <ChatHeader
+          conversation={conversation}
+          onBack={() => console.log('Go back')}
+          onCall={() => console.log('Start call')}
+          onVideoCall={() => console.log('Start video call')}
+        />
+      </div>
 
-      {/* Messages Area */}
+      {/* Messages Area - Takes remaining space */}
       <div 
         ref={messagesContainerRef}
-        className="flex-1 overflow-y-auto px-4 py-4 bg-gray-50 dark:bg-gray-900"
+        onScroll={handleScroll}
+        className="flex-1 overflow-y-auto px-4 py-4 bg-gray-50 dark:bg-gray-900 relative min-h-0"
       >
         {isLoading && messages.length === 0 ? (
           <MessagesLoadingSkeleton />
@@ -89,12 +128,30 @@ export function ChatArea({
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Message Input */}
-      <MessageInput
-        onSendMessage={handleSendMessage}
-        disabled={isLoading}
-        placeholder={`Mensaje para ${getConversationName(conversation)}`}
-      />
+      {/* Scroll to Bottom Button */}
+      {showScrollToBottom && (
+        <div className="absolute bottom-20 right-6 z-10 animate-fade-in">
+          <button
+            onClick={() => scrollToBottom('smooth')}
+            className="bg-blue-600 hover:bg-blue-700 text-white p-3 rounded-full shadow-lg transition-all duration-200 transform hover:scale-110 active:scale-95"
+            title="Ir al último mensaje"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+            </svg>
+          </button>
+          {/* Badge showing unread messages count could go here */}
+        </div>
+      )}
+
+      {/* Message Input - Fixed at bottom */}
+      <div className="flex-shrink-0 border-t border-gray-200 dark:border-gray-700">
+        <MessageInput
+          onSendMessage={handleSendMessage}
+          disabled={isLoading}
+          placeholder={`Mensaje para ${getConversationName(conversation)}`}
+        />
+      </div>
     </div>
   );
 }

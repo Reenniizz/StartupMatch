@@ -101,7 +101,7 @@ export function MessageInput({
 
   return (
     <div className={cn(
-      "border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4",
+      "bg-white dark:bg-gray-800 p-3",
       className
     )}>
       <form onSubmit={handleSubmit} className="flex items-end space-x-3">

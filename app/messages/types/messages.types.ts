@@ -181,6 +181,7 @@ export interface UseConversationsReturn {
   createGroupConversation: (form: GroupForm) => Promise<GroupConversation>;
   updateConversation: (id: string | number, updates: Partial<AnyConversation>) => void;
   deleteConversation: (id: string | number) => void;
+  loadConversations: () => Promise<void>;
   
   // Status management
   markAsRead: (id: string | number) => void;
@@ -205,6 +206,7 @@ export interface UseActiveChatReturn {
   loadMessages: (conversationId: string | number) => Promise<void>;
   loadMoreMessages: () => Promise<void>;
   markMessagesAsRead: () => void;
+  addMessage: (message: Message) => void;
   
   // Real-time
   setTyping: (isTyping: boolean) => void;

@@ -17,29 +17,32 @@ export function useMessageSending(): UseMessageSendingReturn {
     setSendError(null);
     
     try {
-      // Simulate API call to send message
-      await new Promise(resolve => setTimeout(resolve, 800));
-      
-      const newMessage = {
-        id: Date.now(), // In real app, this would come from server
-        conversationId,
-        senderId: 'current-user', // This would come from auth context
-        senderName: 'Usuario Actual',
-        content: content.trim(),
-        timestamp: new Date().toISOString(),
-        type: 'text' as const,
-        status: 'sent' as const,
-        edited: false
-      };
+      // Real API call to send message
+      const response = await fetch('/api/private-messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          conversationId,
+          message: content.trim()
+        })
+      });
 
-      // In real app, this would be handled by a global state or websocket
-      console.log('Message sent:', newMessage);
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Error al enviar mensaje');
+      }
+
+      const data = await response.json();
+      console.log('Message sent successfully:', data);
       
-      // Success feedback could be handled by parent component
-      return;
+      // Return the message data to be handled by parent component
+      return data.messageData;
       
     } catch (err) {
-      setSendError('Error al enviar el mensaje');
+      const errorMessage = err instanceof Error ? err.message : 'Error al enviar el mensaje';
+      setSendError(errorMessage);
       console.error('Error sending message:', err);
       throw err;
     } finally {

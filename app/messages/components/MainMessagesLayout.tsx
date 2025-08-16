@@ -2,11 +2,11 @@
 
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthProvider';
-import { MessagesLayoutProps, AnyConversation, Message, ViewMode } from '../types/messages.types';
+import { AnyConversation, Message, ViewMode } from '../types/messages.types';
 import { 
-  useMessagesState, 
   useConversations, 
-  useActiveChat
+  useActiveChat,
+  useMessageSending
 } from '../hooks';
 import {
   ConversationsList,
@@ -29,44 +29,41 @@ export function MainMessagesLayout({
   // Auth context
   const { user } = useAuth();
 
-  // Main state management
-  const {
-    conversations: individualConversations,
-    groupConversations,
-    activeConversation: activeConversationId,
-    messages,
-    viewMode,
-    searchQuery,
-    isLoading,
-    error,
-    setActiveConversation,
-    setViewMode,
-    setSearchQuery
-  } = useMessagesState();
-
   // Conversations management
   const {
+    conversations,
+    loading: conversationsLoading,
+    error: conversationsError,
+    loadConversations,
     createConversation
   } = useConversations();
 
+  // Message sending
+  const {
+    sendMessage,
+    isSending,
+    sendError
+  } = useMessageSending();
+
   // Active chat management
   const {
-    messages: activeMessages
+    activeConversation,
+    messages: activeMessages,
+    loadingMessages,
+    loadMessages,
+    addMessage
   } = useActiveChat();
 
   // UI State
   const [showGroupModal, setShowGroupModal] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [showSidebar, setShowSidebar] = useState(true);
+  const [selectedConversationId, setSelectedConversationId] = useState<string | number | null>(null);
+  const [viewMode, setViewMode] = useState<ViewMode>('all');
+  const [searchQuery, setSearchQuery] = useState('');
 
-  // Combine conversations for the list
-  const allConversations: AnyConversation[] = [
-    ...individualConversations,
-    ...groupConversations
-  ];
-
-  // Get current active conversation
-  const currentActiveConversation = allConversations.find(c => c.id === activeConversationId);
+  // Find current active conversation
+  const currentActiveConversation = conversations.find(c => c.id === selectedConversationId) || null;
 
   // Mobile detection
   useEffect(() => {
@@ -81,13 +78,23 @@ export function MainMessagesLayout({
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
+  // Load conversations on mount
+  useEffect(() => {
+    if (user) {
+      loadConversations();
+    }
+  }, [user, loadConversations]);
+
+  // Load messages when conversation is selected
+  useEffect(() => {
+    if (selectedConversationId) {
+      loadMessages(selectedConversationId);
+    }
+  }, [selectedConversationId, loadMessages]);
+
   // Handlers
   const handleConversationSelect = (conversationId: string | number) => {
-    // Determine conversation type
-    const isGroup = groupConversations.some(c => c.id === conversationId);
-    const type = isGroup ? 'group' : 'individual';
-    
-    setActiveConversation(conversationId, type);
+    setSelectedConversationId(conversationId);
 
     // On mobile, hide sidebar when selecting conversation
     if (isMobile) {
@@ -96,21 +103,44 @@ export function MainMessagesLayout({
   };
 
   const handleSendMessage = async (content: string) => {
-    if (!activeConversationId || !user) return;
+    if (!selectedConversationId || !user) return;
     
     try {
-      // This would integrate with the actual sendMessage hook
-      console.log('Sending message:', content, 'to conversation:', activeConversationId);
-      // await sendMessage(activeConversationId, content);
+      // Create optimistic message for immediate UI update
+      const optimisticMessage: Message = {
+        id: Date.now(), // Temporary ID
+        conversationId: selectedConversationId,
+        senderId: 'current-user',
+        senderName: 'Tú',
+        content: content.trim(),
+        timestamp: new Date().toISOString(),
+        type: 'text',
+        status: 'sending',
+        edited: false
+      };
+
+      // Add message to UI immediately (optimistic update)
+      addMessage(optimisticMessage);
+
+      // Send message to API
+      await sendMessage(content, selectedConversationId);
+      
+      // Reload messages after a short delay to get the real message from server
+      setTimeout(() => {
+        loadMessages(selectedConversationId);
+      }, 500);
+      
     } catch (error) {
       console.error('Error sending message:', error);
+      // Reload messages to ensure consistency (removes failed optimistic message)
+      setTimeout(() => loadMessages(selectedConversationId), 100);
     }
   };
 
   const handleCreateGroup = async (groupData: any) => {
     try {
-      const groupName = groupData.name;
-      await createConversation(groupName);
+      // For now, just close the modal since group creation needs more work
+      console.log('Group creation not implemented yet:', groupData);
       setShowGroupModal(false);
     } catch (error) {
       console.error('Error creating group:', error);
@@ -130,31 +160,10 @@ export function MainMessagesLayout({
       role: 'member' as const,
       joinedAt: new Date().toISOString()
     },
-    { 
-      id: '2', 
-      name: 'Carlos López', 
-      avatar: '/avatars/carlos.jpg',
-      role: 'member' as const,
-      joinedAt: new Date().toISOString()
-    },
-    { 
-      id: '3', 
-      name: 'María Rodríguez', 
-      avatar: '/avatars/maria.jpg',
-      role: 'member' as const,
-      joinedAt: new Date().toISOString()
-    },
-    { 
-      id: '4', 
-      name: 'David Martín', 
-      avatar: '/avatars/david.jpg',
-      role: 'admin' as const,
-      joinedAt: new Date().toISOString()
-    },
   ];
 
   return (
-    <div className={cn("flex h-screen bg-gray-100 dark:bg-gray-900", className)}>
+    <div className={cn("flex h-screen bg-gray-100 dark:bg-gray-900 overflow-hidden", className)}>
       {/* Sidebar - Conversations List */}
       <AnimatePresence>
         {showSidebar && (
@@ -169,12 +178,12 @@ export function MainMessagesLayout({
             )}
           >
             <ConversationsList
-              conversations={allConversations}
-              activeConversationId={activeConversationId}
+              conversations={conversations}
+              activeConversationId={selectedConversationId}
               viewMode={viewMode}
               searchQuery={searchQuery}
-              isLoading={isLoading}
-              error={error}
+              isLoading={conversationsLoading}
+              error={conversationsError}
               onConversationSelect={handleConversationSelect}
               onSearchChange={setSearchQuery}
               onViewModeChange={setViewMode}
@@ -192,16 +201,16 @@ export function MainMessagesLayout({
         />
       )}
 
-      {/* Main Chat Area */}
-      <div className="flex-1 flex flex-col">
+      {/* Main Chat Area - Takes remaining space */}
+      <div className="flex-1 flex flex-col min-w-0 h-full">
         {currentActiveConversation ? (
           <ChatArea
             conversation={currentActiveConversation}
             messages={activeMessages}
             onSendMessage={handleSendMessage}
-            isLoading={isLoading}
+            isLoading={loadingMessages || isSending}
             typingUsers={[]} // Will be populated by real-time updates
-            className={cn(isMobile && "relative")}
+            className="flex-1"
           />
         ) : (
           <EmptyMainState 
@@ -218,8 +227,15 @@ export function MainMessagesLayout({
         onClose={() => setShowGroupModal(false)}
         onCreateGroup={handleCreateGroup}
         availableUsers={availableUsers}
-        isLoading={isLoading}
+        isLoading={conversationsLoading}
       />
+      
+      {/* Error Display */}
+      {(sendError || conversationsError) && (
+        <div className="fixed bottom-4 right-4 bg-red-500 text-white p-3 rounded-lg shadow-lg z-50">
+          {sendError || conversationsError}
+        </div>
+      )}
     </div>
   );
 }

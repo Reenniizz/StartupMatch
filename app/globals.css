@@ -562,3 +562,19 @@ select[aria-invalid="true"] {
     min-width: 44px;
   }
 }
+
+/* Smooth fade-in animation for scroll to bottom button */
+@keyframes fade-in {
+  0% {
+    opacity: 0;
+    transform: translateY(20px) scale(0.8);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.3s ease-out forwards;
+}

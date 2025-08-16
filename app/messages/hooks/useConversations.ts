@@ -27,12 +27,21 @@ export function useConversations(): UseConversationsReturn {
     setError(null);
     
     try {
-      // Simulate API call delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // This would be populated by the parent useMessagesState hook
-      // For now, we'll return empty as this hook is meant to be used with the main state
-      setConversations([]);
+      // Real API call to load conversations
+      const response = await fetch('/api/conversations', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to load conversations');
+      }
+
+      const data = await response.json();
+      setConversations(data || []);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load conversations');
     } finally {
@@ -40,17 +49,33 @@ export function useConversations(): UseConversationsReturn {
     }
   }, []);
 
-  const createConversation = useCallback(async (userId: string): Promise<Conversation> => {
+  const createConversation = useCallback(async (otherUserId: string): Promise<Conversation> => {
     setLoading(true);
     setError(null);
 
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 500));
+      // Real API call to create conversation
+      const response = await fetch('/api/conversations', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          otherUserId
+        })
+      });
 
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to create conversation');
+      }
+
+      const data = await response.json();
+
+      // Create the conversation object for frontend
       const newConversation: Conversation = {
-        id: `conv_${Date.now()}`,
-        name: `User ${userId}`,
+        id: data.conversationId,
+        name: `User ${otherUserId}`, // This would be updated by reloading conversations
         avatar: '/api/placeholder/40/40',
         lastMessage: 'Conversación iniciada',
         timestamp: new Date().toISOString(),
@@ -61,7 +86,9 @@ export function useConversations(): UseConversationsReturn {
         status: 'active',
       };
 
-      setConversations(prev => [newConversation, ...prev]);
+      // Reload conversations to get updated data
+      await loadConversations();
+      
       return newConversation;
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to create conversation';
@@ -70,7 +97,7 @@ export function useConversations(): UseConversationsReturn {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [loadConversations]);
 
   const createGroupConversation = useCallback(async (form: GroupForm): Promise<GroupConversation> => {
     setLoading(true);
@@ -150,6 +177,7 @@ export function useConversations(): UseConversationsReturn {
     createGroupConversation,
     updateConversation,
     deleteConversation,
+    loadConversations, // Add this for manual refresh
     
     // Status management
     markAsRead,

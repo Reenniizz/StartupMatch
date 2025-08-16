@@ -89,7 +89,7 @@ export async function POST(request: NextRequest) {
 
     const userId = session.user.id;
     const body = await request.json();
-    const { conversationId, message } = body;
+    const { conversationId, message, socketMessageId } = body;
 
     if (!conversationId || !message?.trim()) {
       return NextResponse.json({ error: 'ID de conversación y mensaje son requeridos' }, { status: 400 });
@@ -137,15 +137,18 @@ export async function POST(request: NextRequest) {
       // No devolver error, el mensaje ya se envió
     }
 
+    const messageData = {
+      id: newMessage.id,
+      sender: 'me',
+      message: newMessage.message,
+      timestamp: formatMadridTime(newMessage.created_at),
+      status: 'sent',
+      socketMessageId // Incluir ID del socket para referencia
+    };
+
     return NextResponse.json({
       message: 'Mensaje enviado exitosamente',
-      messageData: {
-        id: newMessage.id,
-        sender: 'me',
-        message: newMessage.message,
-        timestamp: formatMadridTime(newMessage.created_at),
-        status: 'sent'
-      }
+      messageData
     });
 
   } catch (error) {

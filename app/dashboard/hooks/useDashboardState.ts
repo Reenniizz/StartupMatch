@@ -8,6 +8,17 @@ import { DashboardState, ThemeMode, UseDashboardStateReturn } from '../types/das
 import { useTheme } from './useTheme';
 import { useSidebar } from './useSidebar';
 
+// Import icons from Lucide React
+import { 
+  Home, 
+  Heart, 
+  Users, 
+  Search, 
+  MessageSquare, 
+  Rocket,
+  User 
+} from 'lucide-react';
+
 const initialState: DashboardState = {
   sidebar: {
     collapsed: false,
@@ -143,12 +154,12 @@ export function useDashboardState(): UseDashboardStateReturn {
   ];
 
   const mockSidebarItems = [
-    { id: "dashboard", label: "Dashboard", icon: "Home", href: "/dashboard" },
-    { id: "matches", label: "Matches", icon: "Heart", href: "/matches" },
-    { id: "grupos", label: "Grupos", icon: "Users", href: "/grupos", badge: "5" },
-    { id: "explore", label: "Explorar", icon: "Search", href: "/explore" },
-    { id: "messages", label: "Mensajes", icon: "MessageSquare", href: "/messages", badge: "3" },
-    { id: "projects", label: "Mis Proyectos", icon: "Rocket", href: "/projects" },
+    { id: "dashboard", label: "Dashboard", icon: Home, href: "/dashboard" },
+    { id: "matches", label: "Matches", icon: Heart, href: "/matches" },
+    { id: "grupos", label: "Grupos", icon: Users, href: "/grupos", badge: "5" },
+    { id: "explore", label: "Explorar", icon: Search, href: "/explore" },
+    { id: "messages", label: "Mensajes", icon: MessageSquare, href: "/messages", badge: "3" },
+    { id: "projects", label: "Mis Proyectos", icon: Rocket, href: "/projects" },
   ];
 
   const mockQuickActions = [
@@ -156,7 +167,7 @@ export function useDashboardState(): UseDashboardStateReturn {
       id: 'matches', 
       title: 'Explorar Matches', 
       description: 'Encuentra personas compatibles con tus objetivos',
-      icon: 'Heart',
+      icon: Heart,
       color: 'purple' as const,
       href: '/matches'
     },
@@ -164,7 +175,7 @@ export function useDashboardState(): UseDashboardStateReturn {
       id: 'projects', 
       title: 'Crear Proyecto', 
       description: 'Comparte tu idea y encuentra co-fundadores',
-      icon: 'Rocket',
+      icon: Rocket,
       color: 'blue' as const,
       href: '/projects'
     },
@@ -172,7 +183,7 @@ export function useDashboardState(): UseDashboardStateReturn {
       id: 'profile', 
       title: 'Completar Perfil', 
       description: 'Optimiza tu perfil para mejores matches',
-      icon: 'User',
+      icon: User,
       color: 'green' as const,
       href: '/profile'
     },
