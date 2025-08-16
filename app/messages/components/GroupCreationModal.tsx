@@ -33,9 +33,7 @@ export function GroupCreationModal({
     
     const query = searchQuery.toLowerCase();
     return availableUsers.filter(user => 
-      user.name.toLowerCase().includes(query) ||
-      user.email?.toLowerCase().includes(query) ||
-      user.role?.toLowerCase().includes(query)
+      user.name.toLowerCase().includes(query)
     );
   }, [availableUsers, searchQuery]);
 
@@ -329,7 +327,7 @@ function MembersSelectionStep({
             type="text"
             value={searchQuery}
             onChange={(e) => onSearchChange(e.target.value)}
-            placeholder="Buscar usuarios por nombre, email o rol..."
+            placeholder="Buscar usuarios por nombre..."
             className="w-full px-4 py-3 pl-12 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
           />
           <svg className="absolute left-4 top-3.5 w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -437,11 +435,6 @@ function UserSelectionItem({
           <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
             {user.name}
           </p>
-          {user.email && (
-            <p className="text-xs text-gray-500 dark:text-gray-400">
-              {user.email}
-            </p>
-          )}
           {user.role && (
             <span className="inline-block mt-1 px-2 py-1 bg-gray-100 dark:bg-gray-700 text-xs text-gray-600 dark:text-gray-400 rounded">
               {user.role}

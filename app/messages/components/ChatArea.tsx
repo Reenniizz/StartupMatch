@@ -150,7 +150,7 @@ function MessagesList({
                   message={message}
                   isOwn={isOwn}
                   showAvatar={showAvatar}
-                  showSenderName={showSenderName}
+                  showTimestamp={true}
                 />
               );
             })}
