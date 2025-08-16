@@ -20,7 +20,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import Link from 'next/link';
-import { UserProfile, SocialLinks } from '../types';
+import { UserProfile, SocialLinks, ProfileEditData } from '../types';
 import { useState } from 'react';
 
 interface ProfileHeaderProps {
@@ -34,6 +34,18 @@ interface ProfileHeaderProps {
   onUploadAvatar: (file: File) => void;
 }
 
+interface EditFormData {
+  name: string;
+  bio: string;
+  location: string;
+  role: string;
+  company: string;
+  website: string;
+  linkedin_url: string;
+  twitter_url: string;
+  github_url: string;
+}
+
 export function ProfileHeader({
   profile,
   isOwnProfile,
@@ -44,7 +56,7 @@ export function ProfileHeader({
   onCancel,
   onUploadAvatar
 }: ProfileHeaderProps) {
-  const [editData, setEditData] = useState({
+  const [editData, setEditData] = useState<EditFormData>({
     name: profile?.name || '',
     bio: profile?.bio || '',
     location: profile?.location || '',
@@ -268,8 +280,8 @@ function EditingForm({
   onCancel,
   saving
 }: {
-  editData: any;
-  setEditData: (data: any) => void;
+  editData: EditFormData;
+  setEditData: React.Dispatch<React.SetStateAction<EditFormData>>;
   onSave: () => void;
   onCancel: () => void;
   saving: boolean;

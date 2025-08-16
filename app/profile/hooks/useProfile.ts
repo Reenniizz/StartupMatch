@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
-import { useAuth } from '@/contexts/AuthProvider';
+import { createBrowserClient } from '@supabase/ssr';
+import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import type {
   UserProfile,
@@ -14,7 +14,10 @@ import type {
 } from '../types';
 
 export function useProfile(userId?: string) {
-  const supabase = createClientComponentClient();
+  const supabase = createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  );
   const { user } = useAuth();
   const router = useRouter();
   
