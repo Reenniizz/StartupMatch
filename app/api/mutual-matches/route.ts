@@ -21,34 +21,10 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Obtener matches usando la vista optimizada
+    // Obtener matches sin joins complejos - hacer consultas separadas
     const { data: matches, error } = await supabase
       .from('mutual_matches')
-      .select(`
-        *,
-        user1:user_profiles!mutual_matches_user1_id_fkey(
-          id,
-          username,
-          first_name,
-          last_name,
-          bio,
-          role,
-          company,
-          industry,
-          location
-        ),
-        user2:user_profiles!mutual_matches_user2_id_fkey(
-          id,
-          username,
-          first_name,
-          last_name,
-          bio,
-          role,
-          company,
-          industry,
-          location
-        )
-      `)
+      .select('*')
       .or(`user1_id.eq.${userId},user2_id.eq.${userId}`)
       .eq('match_status', status)
       .order('matched_at', { ascending: false })
@@ -62,17 +38,54 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    // Obtener perfiles de usuarios por separado
+    const userIds: string[] = [];
+    (matches || []).forEach(match => {
+      if (match.user1_id !== userId) userIds.push(match.user1_id);
+      if (match.user2_id !== userId) userIds.push(match.user2_id);
+    });
+
+    let profiles: any[] = [];
+    if (userIds.length > 0) {
+      const { data: profilesData, error: profileError } = await supabase
+        .from('user_profiles')
+        .select('id, username, first_name, last_name, bio, role, company, industry, location')
+        .in('id', userIds);
+
+      if (profileError) {
+        console.error('Error fetching user profiles:', profileError);
+        profiles = [];
+      } else {
+        profiles = profilesData || [];
+      }
+    }
+
+    if (error) {
+      console.error('Error fetching mutual matches:', error);
+      return NextResponse.json(
+        { error: 'Error fetching matches' },
+        { status: 500 }
+      );
+    }
+
+    // Crear mapa de perfiles para búsqueda rápida
+    const profileMap = new Map();
+    profiles.forEach(profile => {
+      profileMap.set(profile.id, profile);
+    });
+
     // Formatear respuesta con el perfil del otro usuario
     const formattedMatches = (matches || []).map(match => {
       const isUser1 = match.user1_id === userId;
-      const otherUser = isUser1 ? match.user2 : match.user1;
+      const otherUserId = isUser1 ? match.user2_id : match.user1_id;
+      const otherUser = profileMap.get(otherUserId);
 
       return {
         match_id: match.id,
         matched_at: match.matched_at,
         compatibility_score: match.compatibility_score,
         match_status: match.match_status,
-        other_user: {
+        other_user: otherUser ? {
           id: otherUser.id,
           username: otherUser.username,
           first_name: otherUser.first_name,
@@ -82,6 +95,16 @@ export async function GET(request: NextRequest) {
           company: otherUser.company,
           industry: otherUser.industry,
           location: otherUser.location
+        } : {
+          id: otherUserId,
+          username: 'Usuario no encontrado',
+          first_name: '',
+          last_name: '',
+          bio: '',
+          role: '',
+          company: '',
+          industry: '',
+          location: ''
         }
       };
     });
