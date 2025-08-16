@@ -30,7 +30,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Conversación no encontrada' }, { status: 404 });
     }
 
-    // Obtener los mensajes de la conversación
+    // Obtener los mensajes de la conversación (más recientes primero, luego revertir)
     let query = supabase
       .from('private_messages')
       .select(`
@@ -38,10 +38,12 @@ export async function GET(request: NextRequest) {
         sender_id,
         message,
         created_at,
-        read_at
+        read_at,
+        delivered_at
       `)
       .eq('conversation_id', conversationId)
-      .order('created_at', { ascending: true });
+      .order('created_at', { ascending: false }) // Más recientes primero
+      .limit(50); // Limitar a los últimos 50 mensajes
 
     // Si hay afterId, solo obtener mensajes nuevos (para polling)
     if (afterId && !isNaN(Number(afterId))) {
@@ -56,13 +58,15 @@ export async function GET(request: NextRequest) {
     }
 
     // Transformar los datos al formato esperado por el frontend
-    const formattedMessages = messages?.map((msg: any) => ({
-      id: msg.id,
-      sender: msg.sender_id === userId ? 'me' : 'other',
-      message: msg.message,
-      timestamp: formatMadridTime(msg.created_at),
-      status: msg.sender_id === userId ? 'sent' : 'delivered' // TODO: Implementar estados reales
-    })) || [];
+    const formattedMessages = (messages || [])
+      .reverse() // Revertir para orden cronológico (más antiguos primero)
+      .map((msg: any) => ({
+        id: msg.id,
+        sender: msg.sender_id === userId ? 'me' : 'other',
+        message: msg.message,
+        timestamp: formatMadridTime(msg.created_at),
+        status: msg.read_at ? 'read' : (msg.delivered_at ? 'delivered' : 'sent')
+      }));
 
     return NextResponse.json(formattedMessages);
 

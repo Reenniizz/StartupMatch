@@ -80,6 +80,28 @@ export default function ModernMessagesPage() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
 
+  // Función para marcar mensajes como entregados
+  const markMessagesAsDelivered = async (messageIds: number[]) => {
+    if (messageIds.length === 0) return;
+    
+    try {
+      const response = await fetch('/api/messages/mark-delivered', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messageIds })
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        console.log(`✅ ${result.delivered} mensajes marcados como entregados`);
+      } else {
+        console.warn('⚠️ Error marcando mensajes como entregados');
+      }
+    } catch (error) {
+      console.error('Error marcando mensajes como entregados:', error);
+    }
+  };
+
   // Mobile detection
   useEffect(() => {
     const checkMobile = () => {
@@ -155,6 +177,34 @@ export default function ModernMessagesPage() {
     socketConnection.on('new-message', (message: Message) => {
       console.log('📨 Nuevo mensaje recibido:', message);
       setMessages(prev => [...prev, message]);
+    });
+
+    // ✅ MANEJAR MENSAJES OFFLINE
+    socketConnection.on('offline-message', (message: Message) => {
+      console.log('📬 Mensaje offline recibido:', message);
+      setMessages(prev => {
+        // Evitar duplicados verificando si ya existe el mensaje
+        const exists = prev.some(m => m.id === message.id);
+        if (!exists) {
+          return [...prev, message];
+        }
+        return prev;
+      });
+    });
+
+    // Manejar múltiples mensajes offline de una vez
+    socketConnection.on('offline-messages-batch', (messages: Message[]) => {
+      console.log(`📬 Recibidos ${messages.length} mensajes offline en lote`);
+      setMessages(prev => {
+        const existingIds = new Set(prev.map(m => m.id));
+        const newMessages = messages.filter(m => !existingIds.has(m.id));
+        return [...prev, ...newMessages];
+      });
+
+      // Marcar mensajes como entregados
+      if (messages.length > 0) {
+        markMessagesAsDelivered(messages.map(m => m.id));
+      }
     });
 
     socketConnection.on('message-sent', (data) => {

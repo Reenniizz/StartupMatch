@@ -40,8 +40,98 @@ app.prepare().then(() => {
 
   console.log('🚀 Socket.IO server iniciado en puerto', port);
 
-  // Store user sessions
   const userSessions = new Map(); // userId -> socketId
+  
+  // Función para entregar mensajes offline
+  const deliverOfflineMessages = async (userId, socket) => {
+    try {
+      const { createClient } = require('@supabase/supabase-js');
+      const supabase = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL,
+        process.env.SUPABASE_SERVICE_ROLE_KEY
+      );
+
+      console.log(`📬 Verificando mensajes offline para usuario: ${userId}`);
+
+      // Obtener conversaciones del usuario
+      const { data: conversations, error: convError } = await supabase
+        .from('conversations')
+        .select('id')
+        .or(`user1_id.eq.${userId},user2_id.eq.${userId}`);
+
+      if (convError || !conversations) {
+        console.log(`⚠️ No se pudieron obtener conversaciones para ${userId}`);
+        return;
+      }
+
+      const conversationIds = conversations.map(c => c.id);
+
+      if (conversationIds.length === 0) {
+        console.log(`📭 Usuario ${userId} no tiene conversaciones`);
+        return;
+      }
+
+      // Obtener mensajes no entregados (que no ha visto este usuario)
+      // Asumimos que los mensajes que no ha visto son los que llegaron mientras estaba offline
+      const { data: offlineMessages, error: msgError } = await supabase
+        .from('private_messages')
+        .select(`
+          id,
+          conversation_id,
+          sender_id,
+          message,
+          created_at
+        `)
+        .in('conversation_id', conversationIds)
+        .neq('sender_id', userId) // No incluir sus propios mensajes
+        .is('read_at', null) // Mensajes no leídos
+        .order('created_at', { ascending: true });
+
+      if (msgError) {
+        console.error(`❌ Error obteniendo mensajes offline:`, msgError);
+        return;
+      }
+
+      if (offlineMessages && offlineMessages.length > 0) {
+        console.log(`📬 Entregando ${offlineMessages.length} mensajes offline a ${userId}`);
+
+        // Formatear todos los mensajes
+        const formattedMessages = offlineMessages.map(msg => ({
+          id: msg.id,
+          sender: 'other',
+          message: msg.message,
+          timestamp: msg.created_at,
+          status: 'delivered',
+          conversation_id: msg.conversation_id,
+          isOffline: true
+        }));
+
+        // Enviar mensajes en lote para mejor performance
+        if (formattedMessages.length > 5) {
+          // Enviar en lote si son muchos mensajes
+          socket.emit('offline-messages-batch', formattedMessages);
+        } else {
+          // Enviar individualmente si son pocos
+          formattedMessages.forEach(messageData => {
+            socket.emit('offline-message', messageData);
+          });
+        }
+
+        // Marcar como entregados en la base de datos
+        await supabase
+          .from('private_messages')
+          .update({ delivered_at: new Date().toISOString() })
+          .in('id', offlineMessages.map(m => m.id));
+
+        console.log(`✅ ${offlineMessages.length} mensajes offline entregados a ${userId}`);
+      } else {
+        console.log(`📭 No hay mensajes offline para ${userId}`);
+      }
+
+    } catch (error) {
+      console.error(`💥 Error entregando mensajes offline:`, error);
+    }
+  };
 
   io.on('connection', (socket) => {
     console.log(`🔌 Nueva conexión Socket.IO: ${socket.id}`);
@@ -69,7 +159,7 @@ app.prepare().then(() => {
     console.log(`📊 Usuarios conectados: ${connectedUsers + 1}`);
 
     // Usuario se une cuando envía su ID
-    socket.on('join-user', (userId) => {
+    socket.on('join-user', async (userId) => {
       console.log(`👤 Usuario intentando unirse: ${userId}`);
       
       if (!userId) {
@@ -94,6 +184,9 @@ app.prepare().then(() => {
       
       console.log(`✅ Usuario ${userId} conectado exitosamente con socket ${socket.id}`);
       
+      // ✅ ENTREGAR MENSAJES OFFLINE
+      await deliverOfflineMessages(userId, socket);
+      
       // Confirmar al cliente que se unió correctamente
       socket.emit('join-success', { userId, socketId: socket.id });
       
@@ -111,35 +204,61 @@ app.prepare().then(() => {
       console.log(`💬 Usuario se unió a conversación: ${conversationId}`);
     });
 
-    // Manejar nuevo mensaje
+    // Manejar nuevo mensaje con persistencia en base de datos
     socket.on('send-message', async (data) => {
       const { conversationId, message, userId, tempId } = data;
       console.log(`📤 Nuevo mensaje en conversación ${conversationId}:`, message);
 
       try {
-        // Por simplicidad, enviamos el mensaje inmediatamente a los otros usuarios
-        // En una implementación real, deberías guardar en la base de datos aquí
+        // ✅ GUARDAR MENSAJE EN BASE DE DATOS
+        const { createClient } = require('@supabase/supabase-js');
+        const supabase = createClient(
+          process.env.NEXT_PUBLIC_SUPABASE_URL,
+          process.env.SUPABASE_SERVICE_ROLE_KEY // Usar service key para server
+        );
+
+        // Insertar mensaje en la base de datos
+        const { data: savedMessage, error: dbError } = await supabase
+          .from('private_messages')
+          .insert({
+            conversation_id: conversationId,
+            sender_id: userId,
+            message: message.trim(),
+            created_at: new Date().toISOString()
+          })
+          .select()
+          .single();
+
+        if (dbError) {
+          throw new Error(`Error guardando mensaje en DB: ${dbError.message}`);
+        }
+
+        console.log(`✅ Mensaje guardado en DB con ID: ${savedMessage.id}`);
+
+        // Formatear mensaje para los clientes
         const messageData = {
-          id: Date.now(), // ID temporal para pruebas
+          id: savedMessage.id,
           sender: 'other', // Para el receptor será 'other'
-          message: message,
-          timestamp: new Date().toISOString(),
+          message: savedMessage.message,
+          timestamp: savedMessage.created_at,
           status: 'delivered',
           conversation_id: conversationId
         };
 
-        console.log(`✅ Mensaje procesado con ID: ${messageData.id}`);
-
         // Enviar a todos los usuarios en la conversación EXCEPTO el remitente
-        socket.to(`conversation:${conversationId}`).emit('new-message', messageData);
+        const delivered = socket.to(`conversation:${conversationId}`).emit('new-message', messageData);
+        
+        console.log(`📨 Mensaje enviado via Socket.IO a conversación ${conversationId}`);
 
-        // Confirmar al remitente que el mensaje se envió
+        // Confirmar al remitente que el mensaje se guardó y envió
         socket.emit('message-sent', { 
-          messageId: messageData.id, 
+          messageId: savedMessage.id, 
           status: 'delivered',
           tempId: tempId,
-          timestamp: messageData.timestamp
+          timestamp: savedMessage.created_at
         });
+
+        // TODO: Implementar push notifications para usuarios offline
 
       } catch (error) {
         console.error('💥 Error procesando mensaje:', error);
