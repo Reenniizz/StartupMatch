@@ -29,28 +29,39 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     setIsClient(true);
     
+    // 🚨 SAFETY TIMEOUT: Force loading to false after 10 seconds
+    const safetyTimeout = setTimeout(() => {
+      console.warn('⏰ AUTH TIMEOUT: Forzando fin de loading después de 10 segundos');
+      setLoading(false);
+    }, 10000);
+    
     // ✅ SECURE: Get initial user with validation
     const initializeAuth = async () => {
+      console.log('🔍 AUTH PROVIDER: Iniciando validación de usuario...');
+      
       try {
         // Use getUser() for secure authentication check
         const { data: { user }, error } = await supabase.auth.getUser();
         
         if (error) {
-          console.warn('Error al validar usuario inicial:', error);
+          console.warn('⚠️ Error al validar usuario inicial:', error);
           setUser(null);
           setSession(null);
         } else {
+          console.log('✅ Usuario validado:', user?.email || 'Usuario anónimo');
           setUser(user);
           // If user exists, also get session for UI state
           const { data: { session } } = await supabase.auth.getSession();
           setSession(session);
         }
       } catch (error) {
-        console.error('Error de red al validar usuario:', error);
+        console.error('💥 Error de red al validar usuario:', error);
         setUser(null);
         setSession(null);
       } finally {
+        clearTimeout(safetyTimeout);
         setLoading(false);
+        console.log('🏁 AUTH PROVIDER: Inicialización completada');
       }
     };
 
@@ -60,21 +71,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log('Auth state change:', event, session?.user?.email);
+      console.log('🔄 Auth state change:', event, session?.user?.email || 'Sin usuario');
       
-      // ⚠️ WARNING: session from onAuthStateChange may not be secure
-      // For critical operations, always use getUser() to validate
-      if (session?.user) {
-        // Re-validate user for security
-        const { data: { user }, error } = await supabase.auth.getUser();
-        if (!error && user) {
-          setUser(user);
-          setSession(session); // Use session only for UI state
+      try {
+        // ⚠️ WARNING: session from onAuthStateChange may not be secure
+        // For critical operations, always use getUser() to validate
+        if (session?.user) {
+          console.log('👤 Validando usuario desde state change...');
+          // Re-validate user for security
+          const { data: { user }, error } = await supabase.auth.getUser();
+          if (!error && user) {
+            console.log('✅ Usuario re-validado exitosamente');
+            setUser(user);
+            setSession(session); // Use session only for UI state
+          } else {
+            console.warn('❌ Fallo en re-validación de usuario');
+            setUser(null);
+            setSession(null);
+          }
         } else {
+          console.log('🚪 Usuario desconectado');
           setUser(null);
           setSession(null);
         }
-      } else {
+      } catch (error) {
+        console.error('💥 Error en auth state change:', error);
         setUser(null);
         setSession(null);
       }
@@ -82,7 +103,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setLoading(false);
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      clearTimeout(safetyTimeout);
+      subscription.unsubscribe();
+    };
   }, []);
 
   const signIn = async (email: string, password: string) => {

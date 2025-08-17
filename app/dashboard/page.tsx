@@ -39,20 +39,25 @@ export default function DashboardPage() {
     handleSignOut
   } = useDashboardState();
 
+  console.log("🔍 DASHBOARD COMPLETO: Estado actual", { user: !!user, loading });
+
   // Redirect if not authenticated
   useEffect(() => {
+    console.log("🔄 DASHBOARD COMPLETO: useEffect ejecutado", { user: !!user, loading });
     if (!loading && !user) {
+      console.log("🚪 DASHBOARD COMPLETO: Redirigiendo a login");
       router.push("/login");
     }
   }, [user, loading, router]);
 
   // Show loading while checking authentication
   if (loading) {
+    console.log("⏳ DASHBOARD COMPLETO: Mostrando loading");
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-gray-600">Cargando...</p>
+          <p className="text-gray-600">Cargando dashboard completo...</p>
         </div>
       </div>
     );
@@ -60,8 +65,11 @@ export default function DashboardPage() {
 
   // Don't render if not authenticated
   if (!user) {
+    console.log("❌ DASHBOARD COMPLETO: Sin usuario, no renderizando");
     return null;
   }
+
+  console.log("✅ DASHBOARD COMPLETO: Renderizando dashboard completo para usuario:", user.email);
 
   return (
     <div className={`min-h-screen transition-colors duration-300 ${
