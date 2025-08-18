@@ -577,12 +577,18 @@ function ModernConversationsList({
                 </div>
                 
                 <div className="flex items-center justify-between mt-1">
-                  <p className="text-sm text-gray-600 dark:text-gray-400 truncate">
-                    {conversation.last_message || 'Sin mensajes'}
+                  <p className="text-sm text-gray-600 dark:text-gray-400 flex-1 mr-2 overflow-hidden">
+                    <span className="block truncate">
+                      {conversation.last_message && conversation.last_message.trim() 
+                        ? (conversation.last_message.length > 50 
+                            ? `${conversation.last_message.substring(0, 50)}...` 
+                            : conversation.last_message)
+                        : 'Sin mensajes'}
+                    </span>
                   </p>
-                  {conversation.unread && conversation.unread > 0 && (
-                    <span className="bg-blue-500 text-white text-xs rounded-full px-2 py-1 min-w-[20px] text-center">
-                      {conversation.unread}
+                  {(conversation.unread && Number(conversation.unread) > 0) && (
+                    <span className="bg-blue-500 text-white text-xs rounded-full px-2 py-1 min-w-[20px] text-center flex-shrink-0">
+                      {Number(conversation.unread)}
                     </span>
                   )}
                 </div>

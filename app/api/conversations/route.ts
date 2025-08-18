@@ -42,9 +42,11 @@ export async function GET(request: NextRequest) {
         company: conv.other_user_data?.company || '',
         avatar: conv.other_user_data?.firstName ? conv.other_user_data.firstName.charAt(0).toUpperCase() : 
                 conv.other_user_data?.username ? conv.other_user_data.username.charAt(0).toUpperCase() : 'U',
-        lastMessage: conv.last_message || 'Chat vacío - ¡Envía un mensaje!',
+        last_message: conv.last_message || '', // Usar last_message para consistencia con el frontend
+        lastMessage: conv.last_message || 'Chat vacío - ¡Envía un mensaje!', // Mantener por compatibilidad
+        last_message_time: conv.last_message_at, // Para el frontend
         timestamp: conv.last_message_at ? formatRelativeTime(conv.last_message_at) : 'Nuevo',
-        unread: conv.unread_count || 0,
+        unread: Number(conv.unread_count) || 0,
         online: false, // TODO: Implementar estado online
         isMatch: true, // Todas las conversaciones son matches
         type: 'individual' as const
