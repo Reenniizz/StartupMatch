@@ -10,7 +10,10 @@ import {
   Search, 
   Filter,
   RefreshCw,
-  ArrowLeft
+  ArrowLeft,
+  BarChart3,
+  Handshake,
+  Target
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -18,6 +21,10 @@ import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
+import ProfessionalMatchingHub from '@/components/ProfessionalMatchingHub';
+import AdvancedNetworkingFilters from '@/components/AdvancedNetworkingFilters';
+import NetworkingAnalyticsDashboard from '@/components/NetworkingAnalyticsDashboard';
+import ProfessionalCollaborationHub from '@/components/ProfessionalCollaborationHub';
 
 interface MatchUser {
   id: string;
@@ -38,9 +45,9 @@ interface Connection {
   mutual: boolean;
 }
 
-export default function ModernMatchesPage() {
+export default function ProfessionalMatchesPage() {
   const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState('matches');
+  const [activeTab, setActiveTab] = useState('discovery');
   const [matches, setMatches] = useState<MatchUser[]>([]);
   const [connections, setConnections] = useState<Connection[]>([]);
   const [loading, setLoading] = useState(true);
@@ -108,27 +115,15 @@ export default function ModernMatchesPage() {
     }
   };
 
-  // Filter matches based on search
-  const filteredMatches = Array.isArray(matches) ? matches.filter(match =>
-    match.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    match.role.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    match.industry.toLowerCase().includes(searchQuery.toLowerCase())
-  ) : [];
-
-  const filteredConnections = Array.isArray(connections) ? connections.filter(connection =>
-    connection.user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    connection.user.role.toLowerCase().includes(searchQuery.toLowerCase())
-  ) : [];
-
   if (loading) {
     return <LoadingSkeleton />;
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">
-      <div className="container mx-auto px-4 py-8 max-w-6xl">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 dark:from-gray-900 dark:to-gray-800">
+      <div className="container mx-auto px-4 py-8 max-w-7xl">
         
-        {/* Header */}
+        {/* Header Profesional */}
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -136,15 +131,15 @@ export default function ModernMatchesPage() {
         >
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
-              <div className="p-3 bg-gradient-to-r from-blue-500 to-purple-600 rounded-xl">
-                <Users className="w-6 h-6 text-white" />
+              <div className="p-3 bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl shadow-lg">
+                <Target className="w-6 h-6 text-white" />
               </div>
               <div>
                 <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">
-                  Matches & Conexiones
+                  Centro de Networking Profesional
                 </h1>
                 <p className="text-gray-600 dark:text-gray-400">
-                  Encuentra y conecta con otros emprendedores
+                  Descubre oportunidades de negocio y conexiones estratégicas
                 </p>
               </div>
             </div>
@@ -165,48 +160,80 @@ export default function ModernMatchesPage() {
           </div>
         </motion.div>
 
-        {/* Search and Filters */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }}
-          className="mb-6"
-        >
-          <div className="flex gap-4">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-              <Input
-                placeholder="Buscar por nombre, rol o industria..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10 bg-white dark:bg-gray-800"
-              />
-            </div>
-            <Button variant="outline" size="icon">
-              <Filter className="w-4 h-4" />
-            </Button>
-          </div>
-        </motion.div>
-
-        {/* Tabs */}
+        {/* Navegación Principal de Tabs Profesionales */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-2 mb-6">
-            <TabsTrigger value="matches" className="flex items-center gap-2">
-              <Heart className="w-4 h-4" />
-              Matches ({filteredMatches.length})
+          <TabsList className="grid w-full grid-cols-5 mb-6 bg-white dark:bg-gray-800 shadow-sm">
+            <TabsTrigger value="discovery" className="flex items-center gap-2">
+              <Search className="w-4 h-4" />
+              Discovery
+            </TabsTrigger>
+            <TabsTrigger value="analytics" className="flex items-center gap-2">
+              <BarChart3 className="w-4 h-4" />
+              Analytics
+            </TabsTrigger>
+            <TabsTrigger value="collaboration" className="flex items-center gap-2">
+              <Handshake className="w-4 h-4" />
+              Colaboración
             </TabsTrigger>
             <TabsTrigger value="connections" className="flex items-center gap-2">
               <Users className="w-4 h-4" />
-              Conexiones ({filteredConnections.length})
+              Conexiones ({connections.length})
+            </TabsTrigger>
+            <TabsTrigger value="advanced" className="flex items-center gap-2">
+              <Filter className="w-4 h-4" />
+              Filtros Avanzados
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="matches">
-            <MatchesGrid matches={filteredMatches} onConnect={sendConnectionRequest} />
+          {/* Tab Content */}
+          <TabsContent value="discovery">
+            <motion.div
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.3 }}
+            >
+              <ProfessionalMatchingHub />
+            </motion.div>
+          </TabsContent>
+
+          <TabsContent value="analytics">
+            <motion.div
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.3 }}
+            >
+              <NetworkingAnalyticsDashboard />
+            </motion.div>
+          </TabsContent>
+
+          <TabsContent value="collaboration">
+            <motion.div
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.3 }}
+            >
+              <ProfessionalCollaborationHub />
+            </motion.div>
           </TabsContent>
 
           <TabsContent value="connections">
-            <ConnectionsList connections={filteredConnections} />
+            <motion.div
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.3 }}
+            >
+              <ConnectionsList connections={connections} />
+            </motion.div>
+          </TabsContent>
+
+          <TabsContent value="advanced">
+            <motion.div
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.3 }}
+            >
+              <AdvancedNetworkingFilters />
+            </motion.div>
           </TabsContent>
         </Tabs>
       </div>
@@ -214,7 +241,7 @@ export default function ModernMatchesPage() {
   );
 }
 
-// Matches Grid Component
+// Matches Grid Component - mantenemos para conexiones existentes
 function MatchesGrid({ 
   matches, 
   onConnect 
@@ -234,7 +261,7 @@ function MatchesGrid({
           No hay matches disponibles
         </h3>
         <p className="text-gray-600 dark:text-gray-400">
-          Completa tu perfil para encontrar más matches compatibles
+          Usa el Discovery profesional para encontrar nuevas oportunidades
         </p>
       </motion.div>
     );

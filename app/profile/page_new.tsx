@@ -199,7 +199,6 @@ export default function ProfilePage() {
     if (!tempProfile) return;
     
     setIsSaving(true);
-    // Simular guardado
     await new Promise(resolve => setTimeout(resolve, 1000));
     
     setProfile(tempProfile);
@@ -255,6 +254,8 @@ export default function ProfilePage() {
   };
 
   const renderTabContent = () => {
+    if (!profile) return null;
+
     switch (activeTab) {
       case 'overview':
         return (
@@ -319,7 +320,7 @@ export default function ProfilePage() {
                   </div>
                 </div>
               ) : (
-                <p className="text-gray-700 leading-relaxed">{profile?.bio}</p>
+                <p className="text-gray-700 leading-relaxed">{profile.bio}</p>
               )}
             </motion.div>
 
@@ -332,22 +333,22 @@ export default function ProfilePage() {
             >
               <Card className="p-4 text-center border-0 bg-gradient-to-br from-blue-50 to-blue-100">
                 <Briefcase className="h-8 w-8 text-blue-600 mx-auto mb-2" />
-                <div className="text-2xl font-bold text-gray-900">{profile?.stats.projects}</div>
+                <div className="text-2xl font-bold text-gray-900">{profile.stats.projects}</div>
                 <div className="text-sm text-gray-600">Proyectos</div>
               </Card>
               <Card className="p-4 text-center border-0 bg-gradient-to-br from-green-50 to-green-100">
                 <Target className="h-8 w-8 text-green-600 mx-auto mb-2" />
-                <div className="text-2xl font-bold text-gray-900">{profile?.stats.connections}</div>
+                <div className="text-2xl font-bold text-gray-900">{profile.stats.connections}</div>
                 <div className="text-sm text-gray-600">Conexiones</div>
               </Card>
               <Card className="p-4 text-center border-0 bg-gradient-to-br from-yellow-50 to-yellow-100">
                 <Star className="h-8 w-8 text-yellow-600 mx-auto mb-2" />
-                <div className="text-2xl font-bold text-gray-900">{profile?.stats.rating}</div>
+                <div className="text-2xl font-bold text-gray-900">{profile.stats.rating}</div>
                 <div className="text-sm text-gray-600">Rating</div>
               </Card>
               <Card className="p-4 text-center border-0 bg-gradient-to-br from-purple-50 to-purple-100">
                 <Eye className="h-8 w-8 text-purple-600 mx-auto mb-2" />
-                <div className="text-2xl font-bold text-gray-900">{profile?.stats.views.toLocaleString()}</div>
+                <div className="text-2xl font-bold text-gray-900">{profile.stats.views.toLocaleString()}</div>
                 <div className="text-sm text-gray-600">Vistas</div>
               </Card>
             </motion.div>
@@ -363,7 +364,7 @@ export default function ProfilePage() {
           >
             <h3 className="text-lg font-semibold text-gray-900 mb-6">Experiencia Laboral</h3>
             <div className="space-y-6">
-              {profile?.experience.map((exp, index) => (
+              {profile.experience.map((exp, index) => (
                 <div key={index} className="border-l-4 border-blue-500 pl-6 relative">
                   <div className="absolute -left-2 top-0 w-4 h-4 bg-blue-500 rounded-full"></div>
                   <div className="flex justify-between items-start mb-2">
@@ -392,7 +393,7 @@ export default function ProfilePage() {
           >
             <h3 className="text-lg font-semibold text-gray-900 mb-6">Educación</h3>
             <div className="space-y-4">
-              {profile?.education.map((edu, index) => (
+              {profile.education.map((edu, index) => (
                 <div key={index} className="flex items-start gap-4 p-4 bg-gray-50 rounded-xl">
                   <div className="p-2 bg-indigo-100 rounded-lg">
                     <GraduationCap className="h-6 w-6 text-indigo-600" />
@@ -500,7 +501,7 @@ export default function ProfilePage() {
               </div>
             ) : (
               <div className="flex flex-wrap gap-3">
-                {profile?.skills.map((skill, index) => (
+                {profile.skills.map((skill, index) => (
                   <Badge 
                     key={index} 
                     variant="secondary" 
@@ -523,7 +524,7 @@ export default function ProfilePage() {
           >
             <h3 className="text-lg font-semibold text-gray-900 mb-6">Logros y Reconocimientos</h3>
             <div className="grid gap-4">
-              {profile?.achievements.map((achievement, index) => (
+              {profile.achievements.map((achievement, index) => (
                 <div key={index} className="flex items-start gap-4 p-4 bg-gradient-to-r from-yellow-50 to-orange-50 rounded-xl border border-yellow-200">
                   <div className="p-2 bg-yellow-100 rounded-lg">
                     <Trophy className="h-6 w-6 text-yellow-600" />
@@ -647,32 +648,32 @@ export default function ProfilePage() {
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {profile?.contact.phone && (
+                {profile.contact.phone && (
                   <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
                     <Phone className="h-5 w-5 text-gray-600" />
-                    <span className="text-gray-700">{profile?.contact.phone}</span>
+                    <span className="text-gray-700">{profile.contact.phone}</span>
                   </div>
                 )}
                 <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
                   <Mail className="h-5 w-5 text-gray-600" />
-                  <span className="text-gray-700">{profile?.email}</span>
+                  <span className="text-gray-700">{profile.email}</span>
                 </div>
-                {profile?.contact.linkedin && (
+                {profile.contact.linkedin && (
                   <div className="flex items-center gap-3 p-3 bg-blue-50 rounded-lg">
                     <Linkedin className="h-5 w-5 text-blue-600" />
-                    <span className="text-blue-700">linkedin.com/in/{profile?.contact.linkedin}</span>
+                    <span className="text-blue-700">linkedin.com/in/{profile.contact.linkedin}</span>
                   </div>
                 )}
-                {profile?.contact.github && (
+                {profile.contact.github && (
                   <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
                     <Github className="h-5 w-5 text-gray-600" />
-                    <span className="text-gray-700">github.com/{profile?.contact.github}</span>
+                    <span className="text-gray-700">github.com/{profile.contact.github}</span>
                   </div>
                 )}
-                {profile?.contact.website && (
+                {profile.contact.website && (
                   <div className="flex items-center gap-3 p-3 bg-green-50 rounded-lg">
                     <Globe className="h-5 w-5 text-green-600" />
-                    <span className="text-green-700">{profile?.contact.website}</span>
+                    <span className="text-green-700">{profile.contact.website}</span>
                   </div>
                 )}
               </div>
@@ -710,45 +711,37 @@ export default function ProfilePage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
+      {/* Header Compacto */}
       <div className="bg-white border-b border-gray-200">
-        <div className="max-w-6xl mx-auto px-6 py-8">
+        <div className="max-w-6xl mx-auto px-6 py-6">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="flex items-start gap-6"
+            className="flex items-center gap-6"
           >
             {/* Avatar */}
             <div className="relative">
-              <Avatar className="w-24 h-24 border-4 border-white shadow-lg">
-                <AvatarImage src="/api/placeholder/96/96" alt={profile.name} />
-                <AvatarFallback className="text-xl font-bold bg-gradient-to-br from-blue-500 to-purple-600 text-white">
+              <Avatar className="w-20 h-20 border-4 border-white shadow-lg">
+                <AvatarImage src="/api/placeholder/80/80" alt={profile.name} />
+                <AvatarFallback className="text-lg font-bold bg-gradient-to-br from-blue-500 to-purple-600 text-white">
                   {profile.name.split(' ').map(n => n[0]).join('')}
                 </AvatarFallback>
               </Avatar>
-              <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-green-500 rounded-full border-2 border-white"></div>
+              <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-green-500 rounded-full border-2 border-white"></div>
             </div>
 
-            {/* Info */}
+            {/* Info Compacta */}
             <div className="flex-1">
-              <h1 className="text-3xl font-bold text-gray-900 mb-2">
-                {profile.name}
-              </h1>
-              <p className="text-xl text-blue-600 font-semibold mb-3">
-                {profile.role}
-              </p>
-              <div className="flex flex-wrap items-center gap-4 text-gray-600">
-                <div className="flex items-center gap-2">
+              <h1 className="text-2xl font-bold text-gray-900 mb-1">{profile.name}</h1>
+              <p className="text-lg text-blue-600 font-semibold mb-2">{profile.role}</p>
+              <div className="flex flex-wrap items-center gap-4 text-sm text-gray-600">
+                <div className="flex items-center gap-1">
                   <Building className="w-4 h-4" />
                   <span>{profile.company}</span>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1">
                   <MapPin className="w-4 h-4" />
                   <span>{profile.location}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Calendar className="w-4 h-4" />
-                  <span>Se unió en {new Date(profile.joined).toLocaleDateString('es-ES', { year: 'numeric', month: 'long' })}</span>
                 </div>
               </div>
             </div>
@@ -758,12 +751,13 @@ export default function ProfilePage() {
               <Button 
                 onClick={() => setIsEditing(true)}
                 variant="outline"
-                className="rounded-xl"
+                size="sm"
+                className="rounded-lg"
               >
                 <Edit3 className="w-4 h-4 mr-2" />
-                Editar perfil
+                Editar
               </Button>
-              <Button className="bg-blue-600 hover:bg-blue-700 text-white rounded-xl">
+              <Button className="bg-blue-600 hover:bg-blue-700 text-white rounded-lg" size="sm">
                 <Users className="w-4 h-4 mr-2" />
                 Seguir
               </Button>
@@ -772,432 +766,40 @@ export default function ProfilePage() {
         </div>
       </div>
 
+      {/* Navigation Tabs */}
+      <div className="bg-white border-b border-gray-200 sticky top-0 z-10">
+        <div className="max-w-6xl mx-auto px-6">
+          <nav className="flex space-x-8 overflow-x-auto">
+            {tabs.map((tab) => {
+              const Icon = tab.icon;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`flex items-center gap-2 px-3 py-4 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+                    activeTab === tab.id
+                      ? 'border-blue-500 text-blue-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
+                >
+                  <Icon className="w-4 h-4" />
+                  {tab.label}
+                </button>
+              );
+            })}
+          </nav>
+        </div>
+      </div>
+
       {/* Content */}
-      <div className="max-w-6xl mx-auto px-6 py-8 space-y-6">
-        {/* Bio Section */}
+      <div className="max-w-6xl mx-auto px-6 py-6">
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2 }}
-          className="bg-white rounded-2xl p-6 shadow-lg"
+          key={activeTab}
+          initial={{ opacity: 0, x: 20 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.3 }}
         >
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-xl font-semibold text-gray-900">
-              Sobre mí
-            </h2>
-            {editingSection !== 'bio' && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => handleEditSection('bio')}
-                className="text-blue-600 border-blue-200 hover:bg-blue-50"
-              >
-                <Edit3 className="h-4 w-4 mr-1" />
-                Editar
-              </Button>
-            )}
-          </div>
-          
-          {editingSection === 'bio' ? (
-            <div className="space-y-4">
-              <Textarea
-                value={tempProfile?.bio || ''}
-                onChange={(e) => updateTempProfile('bio', e.target.value)}
-                placeholder="Escribe sobre ti..."
-                className="min-h-[100px] resize-none"
-              />
-              <div className="flex gap-2 justify-end">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleCancelEdit}
-                  disabled={isSaving}
-                >
-                  <X className="h-4 w-4 mr-1" />
-                  Cancelar
-                </Button>
-                <Button
-                  size="sm"
-                  onClick={handleSaveSection}
-                  disabled={isSaving}
-                  className="bg-blue-600 hover:bg-blue-700"
-                >
-                  {isSaving ? (
-                    <>
-                      <div className="animate-spin h-4 w-4 mr-1 border-2 border-white border-t-transparent rounded-full" />
-                      Guardando...
-                    </>
-                  ) : (
-                    <>
-                      <Check className="h-4 w-4 mr-1" />
-                      Guardar
-                    </>
-                  )}
-                </Button>
-              </div>
-            </div>
-          ) : (
-            <p className="text-gray-700 leading-relaxed">
-              {profile.bio}
-            </p>
-          )}
-        </motion.div>
-
-        {/* Statistics Section */}
-        <motion.div
-          className="bg-white rounded-2xl p-6 shadow-lg"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3 }}
-        >
-          <h2 className="text-xl font-semibold text-gray-900 mb-6">Estadísticas</h2>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <Card className="p-4 text-center border-0 bg-gray-50">
-              <Briefcase className="h-8 w-8 text-blue-600 mx-auto mb-2" />
-              <div className="text-2xl font-bold text-gray-900">{profile.stats.projects}</div>
-              <div className="text-sm text-gray-600">Proyectos</div>
-            </Card>
-            <Card className="p-4 text-center border-0 bg-gray-50">
-              <Target className="h-8 w-8 text-green-600 mx-auto mb-2" />
-              <div className="text-2xl font-bold text-gray-900">{profile.stats.connections}</div>
-              <div className="text-sm text-gray-600">Conexiones</div>
-            </Card>
-            <Card className="p-4 text-center border-0 bg-gray-50">
-              <Star className="h-8 w-8 text-yellow-600 mx-auto mb-2" />
-              <div className="text-2xl font-bold text-gray-900">{profile.stats.rating}</div>
-              <div className="text-sm text-gray-600">Rating</div>
-            </Card>
-            <Card className="p-4 text-center border-0 bg-gray-50">
-              <Eye className="h-8 w-8 text-purple-600 mx-auto mb-2" />
-              <div className="text-2xl font-bold text-gray-900">{profile.stats.views.toLocaleString()}</div>
-              <div className="text-sm text-gray-600">Vistas</div>
-            </Card>
-          </div>
-        </motion.div>
-
-        {/* Skills Section */}
-        <motion.div
-          className="bg-white rounded-2xl p-6 shadow-lg"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.4 }}
-        >
-          <div className="flex justify-between items-center mb-6">
-            <h2 className="text-xl font-semibold text-gray-900">Habilidades</h2>
-            {editingSection !== 'skills' && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => handleEditSection('skills')}
-                className="text-blue-600 border-blue-200 hover:bg-blue-50"
-              >
-                <Edit3 className="h-4 w-4 mr-1" />
-                Editar
-              </Button>
-            )}
-          </div>
-
-          {editingSection === 'skills' ? (
-            <div className="space-y-4">
-              {/* Agregar nueva habilidad */}
-              <div className="flex gap-2">
-                <Input
-                  value={newSkill}
-                  onChange={(e) => setNewSkill(e.target.value)}
-                  placeholder="Agregar nueva habilidad..."
-                  className="flex-1"
-                  onKeyPress={(e) => e.key === 'Enter' && handleAddSkill()}
-                />
-                <Button
-                  onClick={handleAddSkill}
-                  disabled={!newSkill.trim()}
-                  size="sm"
-                  className="bg-green-600 hover:bg-green-700"
-                >
-                  Agregar
-                </Button>
-              </div>
-
-              {/* Lista de habilidades editables */}
-              <div className="flex flex-wrap gap-3">
-                {tempProfile?.skills.map((skill, index) => (
-                  <Badge 
-                    key={index} 
-                    variant="secondary" 
-                    className="px-4 py-2 text-sm font-medium bg-blue-100 text-blue-800 hover:bg-blue-200 flex items-center gap-2 group"
-                  >
-                    {skill}
-                    <button
-                      onClick={() => handleRemoveSkill(index)}
-                      className="opacity-0 group-hover:opacity-100 transition-opacity text-red-500 hover:text-red-700"
-                    >
-                      <X className="h-3 w-3" />
-                    </button>
-                  </Badge>
-                ))}
-              </div>
-
-              {/* Botones de acción */}
-              <div className="flex gap-2 justify-end pt-4 border-t">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleCancelEdit}
-                  disabled={isSaving}
-                >
-                  <X className="h-4 w-4 mr-1" />
-                  Cancelar
-                </Button>
-                <Button
-                  size="sm"
-                  onClick={handleSaveSection}
-                  disabled={isSaving}
-                  className="bg-blue-600 hover:bg-blue-700"
-                >
-                  {isSaving ? (
-                    <>
-                      <div className="animate-spin h-4 w-4 mr-1 border-2 border-white border-t-transparent rounded-full" />
-                      Guardando...
-                    </>
-                  ) : (
-                    <>
-                      <Check className="h-4 w-4 mr-1" />
-                      Guardar
-                    </>
-                  )}
-                </Button>
-              </div>
-            </div>
-          ) : (
-            <div className="flex flex-wrap gap-3">
-              {profile.skills.map((skill, index) => (
-                <Badge 
-                  key={index} 
-                  variant="secondary" 
-                  className="px-4 py-2 text-sm font-medium bg-blue-100 text-blue-800 hover:bg-blue-200"
-                >
-                  {skill}
-                </Badge>
-              ))}
-            </div>
-          )}
-        </motion.div>
-
-        {/* Experience Section */}
-        <motion.div
-          className="bg-white rounded-2xl p-6 shadow-lg"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.5 }}
-        >
-          <h2 className="text-xl font-semibold text-gray-900 mb-6">Experiencia Laboral</h2>
-          <div className="space-y-6">
-            {profile.experience.map((exp, index) => (
-              <div key={index} className="border-l-4 border-blue-500 pl-6 relative">
-                <div className="absolute -left-2 top-0 w-4 h-4 bg-blue-500 rounded-full"></div>
-                <div className="flex justify-between items-start mb-2">
-                  <div>
-                    <h3 className="text-lg font-semibold text-gray-900">{exp.role}</h3>
-                    <p className="text-blue-600 font-medium">{exp.company}</p>
-                  </div>
-                  <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
-                    <Clock className="h-3 w-3 mr-1" />
-                    {exp.period}
-                  </Badge>
-                </div>
-                <p className="text-gray-600 leading-relaxed">{exp.description}</p>
-              </div>
-            ))}
-          </div>
-        </motion.div>
-
-        {/* Education Section */}
-        <motion.div
-          className="bg-white rounded-2xl p-6 shadow-lg"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.6 }}
-        >
-          <h2 className="text-xl font-semibold text-gray-900 mb-6">Educación</h2>
-          <div className="space-y-4">
-            {profile.education.map((edu, index) => (
-              <div key={index} className="flex items-start gap-4 p-4 bg-gray-50 rounded-xl">
-                <div className="p-2 bg-indigo-100 rounded-lg">
-                  <GraduationCap className="h-6 w-6 text-indigo-600" />
-                </div>
-                <div className="flex-1">
-                  <h3 className="font-semibold text-gray-900">{edu.degree}</h3>
-                  <p className="text-indigo-600 font-medium">{edu.institution}</p>
-                  <p className="text-sm text-gray-600">{edu.period}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </motion.div>
-
-        {/* Achievements Section */}
-        <motion.div
-          className="bg-white rounded-2xl p-6 shadow-lg"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.7 }}
-        >
-          <h2 className="text-xl font-semibold text-gray-900 mb-6">Logros y Reconocimientos</h2>
-          <div className="grid gap-4">
-            {profile.achievements.map((achievement, index) => (
-              <div key={index} className="flex items-start gap-4 p-4 bg-gradient-to-r from-yellow-50 to-orange-50 rounded-xl border border-yellow-200">
-                <div className="p-2 bg-yellow-100 rounded-lg">
-                  <Trophy className="h-6 w-6 text-yellow-600" />
-                </div>
-                <div className="flex-1">
-                  <div className="flex justify-between items-start mb-1">
-                    <h3 className="font-semibold text-gray-900">{achievement.title}</h3>
-                    <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-300">
-                      {achievement.year}
-                    </Badge>
-                  </div>
-                  <p className="text-gray-600">{achievement.description}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </motion.div>
-
-        {/* Contact Section */}
-        <motion.div
-          className="bg-white rounded-2xl p-6 shadow-lg"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.8 }}
-        >
-          <div className="flex justify-between items-center mb-6">
-            <h2 className="text-xl font-semibold text-gray-900">Información de Contacto</h2>
-            {editingSection !== 'contact' && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => handleEditSection('contact')}
-                className="text-blue-600 border-blue-200 hover:bg-blue-50"
-              >
-                <Edit3 className="h-4 w-4 mr-1" />
-                Editar
-              </Button>
-            )}
-          </div>
-
-          {editingSection === 'contact' ? (
-            <div className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="phone">Teléfono</Label>
-                  <Input
-                    id="phone"
-                    value={tempProfile?.contact.phone || ''}
-                    onChange={(e) => updateTempProfile('contact.phone', e.target.value)}
-                    placeholder="+34 600 123 456"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="email">Email</Label>
-                  <Input
-                    id="email"
-                    value={tempProfile?.email || ''}
-                    onChange={(e) => updateTempProfile('email', e.target.value)}
-                    placeholder="tu@email.com"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="linkedin">LinkedIn</Label>
-                  <Input
-                    id="linkedin"
-                    value={tempProfile?.contact.linkedin || ''}
-                    onChange={(e) => updateTempProfile('contact.linkedin', e.target.value)}
-                    placeholder="tu-perfil-linkedin"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="github">GitHub</Label>
-                  <Input
-                    id="github"
-                    value={tempProfile?.contact.github || ''}
-                    onChange={(e) => updateTempProfile('contact.github', e.target.value)}
-                    placeholder="tu-usuario-github"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="website">Sitio Web</Label>
-                  <Input
-                    id="website"
-                    value={tempProfile?.contact.website || ''}
-                    onChange={(e) => updateTempProfile('contact.website', e.target.value)}
-                    placeholder="www.tusitio.com"
-                  />
-                </div>
-              </div>
-              
-              {/* Botones de acción */}
-              <div className="flex gap-2 justify-end pt-4 border-t">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleCancelEdit}
-                  disabled={isSaving}
-                >
-                  <X className="h-4 w-4 mr-1" />
-                  Cancelar
-                </Button>
-                <Button
-                  size="sm"
-                  onClick={handleSaveSection}
-                  disabled={isSaving}
-                  className="bg-blue-600 hover:bg-blue-700"
-                >
-                  {isSaving ? (
-                    <>
-                      <div className="animate-spin h-4 w-4 mr-1 border-2 border-white border-t-transparent rounded-full" />
-                      Guardando...
-                    </>
-                  ) : (
-                    <>
-                      <Check className="h-4 w-4 mr-1" />
-                      Guardar
-                    </>
-                  )}
-                </Button>
-              </div>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {profile.contact.phone && (
-                <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
-                  <Phone className="h-5 w-5 text-gray-600" />
-                  <span className="text-gray-700">{profile.contact.phone}</span>
-                </div>
-              )}
-              <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
-                <Mail className="h-5 w-5 text-gray-600" />
-                <span className="text-gray-700">{profile.email}</span>
-              </div>
-              {profile.contact.linkedin && (
-                <div className="flex items-center gap-3 p-3 bg-blue-50 rounded-lg">
-                  <Linkedin className="h-5 w-5 text-blue-600" />
-                  <span className="text-blue-700">linkedin.com/in/{profile.contact.linkedin}</span>
-                </div>
-              )}
-              {profile.contact.github && (
-                <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
-                  <Github className="h-5 w-5 text-gray-600" />
-                  <span className="text-gray-700">github.com/{profile.contact.github}</span>
-                </div>
-              )}
-              {profile.contact.website && (
-                <div className="flex items-center gap-3 p-3 bg-green-50 rounded-lg">
-                  <Globe className="h-5 w-5 text-green-600" />
-                  <span className="text-green-700">{profile.contact.website}</span>
-                </div>
-              )}
-            </div>
-          )}
+          {renderTabContent()}
         </motion.div>
       </div>
     </div>

@@ -1,6 +1,6 @@
 /**
- * Dashboard Sidebar Component
- * Collapsible navigation sidebar with smooth animations
+ * Minimalist Dashboard Sidebar Component
+ * Clean, simple, and modern sidebar design
  */
 
 'use client';
@@ -8,9 +8,67 @@
 import React from 'react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
+import { useRouter, usePathname } from 'next/navigation';
+import { 
+  Home, Heart, Search, MessageSquare, Users, Rocket, User, Settings, 
+  HelpCircle
+} from 'lucide-react';
 import { DashboardSidebarProps } from '../types/dashboard.types';
+
+// Simple navigation items
+const navigationItems = [
+  { 
+    id: 'dashboard', 
+    label: 'Dashboard', 
+    icon: Home, 
+    href: '/dashboard'
+  },
+  { 
+    id: 'matches', 
+    label: 'Matches', 
+    icon: Heart, 
+    href: '/matches',
+    badge: 3
+  },
+  { 
+    id: 'explore', 
+    label: 'Explore', 
+    icon: Search, 
+    href: '/explore'
+  },
+  { 
+    id: 'messages', 
+    label: 'Messages', 
+    icon: MessageSquare, 
+    href: '/messages',
+    badge: 2
+  },
+  { 
+    id: 'grupos', 
+    label: 'Groups', 
+    icon: Users, 
+    href: '/grupos',
+    badge: 5
+  },
+  { 
+    id: 'projects', 
+    label: 'Projects', 
+    icon: Rocket, 
+    href: '/projects'
+  },
+  { 
+    id: 'profile', 
+    label: 'Profile', 
+    icon: User, 
+    href: '/profile'
+  },
+  { 
+    id: 'settings', 
+    label: 'Settings', 
+    icon: Settings, 
+    href: '/settings'
+  }
+];
 
 export function DashboardSidebar({
   collapsed,
@@ -19,91 +77,71 @@ export function DashboardSidebar({
   isDarkMode,
   items
 }: DashboardSidebarProps) {
+  const router = useRouter();
+  const pathname = usePathname();
+
+  const renderNavItem = (item: any, index: number) => {
+    const isActive = pathname === item.href;
+    const Icon = item.icon;
+
+    return (
+      <Link key={item.id} href={item.href}>
+        <div
+          className={`group relative flex items-center px-3 py-2.5 rounded-lg transition-all duration-200 ${
+            collapsed ? 'justify-center' : 'justify-start'
+          } ${
+            isActive
+              ? isDarkMode
+                ? 'bg-blue-600 text-white'
+                : 'bg-blue-600 text-white'
+              : isDarkMode
+                ? 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+          }`}
+        >
+          {/* Icon */}
+          <Icon className={`w-5 h-5 flex-shrink-0 ${!collapsed ? 'mr-3' : ''}`} />
+          
+          {/* Label */}
+          {!collapsed && (
+            <span className="font-medium text-sm">{item.label}</span>
+          )}
+          
+          {/* Badge */}
+          {item.badge && (
+            <div className={`${
+              collapsed 
+                ? 'absolute -top-1 -right-1 w-5 h-5' 
+                : 'ml-auto px-2 py-0.5 min-w-[20px] h-5'
+            } bg-red-500 text-white text-xs rounded-full flex items-center justify-center font-medium`}>
+              {collapsed && item.badge > 9 ? '9+' : item.badge}
+            </div>
+          )}
+
+          {/* Tooltip for collapsed state */}
+          {collapsed && (
+            <div className="absolute left-full ml-2 px-2 py-1 bg-gray-900 text-white text-sm rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-50">
+              {item.label}
+            </div>
+          )}
+        </div>
+      </Link>
+    );
+  };
+
   return (
     <motion.aside
-      initial={false}
-      animate={{ width: collapsed ? 80 : 280 }}
-      transition={{ duration: 0.3, ease: 'easeInOut' }}
-      className={`border-r shadow-sm h-[calc(100vh-73px)] sticky top-[73px] transition-colors duration-300 ${
+      animate={{ width: collapsed ? 64 : 256 }}
+      transition={{ duration: 0.2, ease: 'easeInOut' }}
+      className={`border-r h-[calc(100vh-73px)] sticky top-[73px] transition-colors duration-200 ${
         isDarkMode 
-          ? 'bg-gray-800 border-gray-700' 
+          ? 'bg-slate-900 border-slate-800' 
           : 'bg-white border-gray-200'
       }`}
     >
-      <div className="p-4">
+      <div className="p-3">
         <nav className="space-y-1">
-          {items.map((item) => {
-            const Icon = item.icon;
-            const isActive = activeSection === item.id;
-            
-            return (
-              <Link 
-                key={item.id}
-                href={item.href}
-                className="block"
-              >
-                <Button
-                  variant={isActive ? "secondary" : "ghost"}
-                  className={`w-full justify-start relative transition-all duration-300 ${
-                    collapsed ? "px-2" : "px-3"
-                  } ${
-                    isDarkMode 
-                      ? 'text-gray-300 hover:text-white hover:bg-gray-700' 
-                      : 'text-gray-700 hover:text-gray-900 hover:bg-gray-100'
-                  } ${
-                    isActive && isDarkMode ? 'bg-gray-700 text-white' : ''
-                  } ${
-                    isActive && !isDarkMode ? 'bg-gray-100 text-gray-900' : ''
-                  }`}
-                  onClick={() => onSetActiveSection(item.id)}
-                >
-                  <Icon className={`h-5 w-5 flex-shrink-0 ${
-                    collapsed ? "" : "mr-3"
-                  }`} />
-                  
-                  {!collapsed && (
-                    <motion.div 
-                      className="flex items-center justify-between w-full"
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      exit={{ opacity: 0 }}
-                      transition={{ duration: 0.2 }}
-                    >
-                      <span className="truncate">{item.label}</span>
-                      {item.badge && (
-                        <Badge 
-                          variant="secondary" 
-                          className={`ml-auto text-xs transition-colors duration-300 ${
-                            isDarkMode 
-                              ? 'bg-gray-600 text-gray-200' 
-                              : 'bg-gray-200 text-gray-700'
-                          }`}
-                        >
-                          {item.badge}
-                        </Badge>
-                      )}
-                    </motion.div>
-                  )}
-                  
-                  {/* Tooltip for collapsed state */}
-                  {collapsed && item.badge && (
-                    <div className="absolute -right-1 -top-1">
-                      <Badge 
-                        variant="secondary" 
-                        className={`text-xs w-5 h-5 rounded-full flex items-center justify-center p-0 ${
-                          isDarkMode 
-                            ? 'bg-red-600 text-white' 
-                            : 'bg-red-500 text-white'
-                        }`}
-                      >
-                        {item.badge}
-                      </Badge>
-                    </div>
-                  )}
-                </Button>
-              </Link>
-            );
-          })}
+          {navigationItems.map((item, index) => renderNavItem(item, index))}
         </nav>
       </div>
     </motion.aside>
