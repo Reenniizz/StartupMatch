@@ -3,6 +3,18 @@
 import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { useAuth } from '@/contexts/AuthProvider';
+import { supabase } from '@/lib/supabase-client';
+
+// Helper function para obtener sesión de forma segura
+const getSupabaseSession = async () => {
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    return session;
+  } catch (error) {
+    console.error('❌ Error obteniendo sesión de Supabase:', error);
+    return null;
+  }
+};
 
 interface SocketContextType {
   socket: Socket | null;
@@ -140,8 +152,7 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({ children }) => {
         }
 
         // Obtener el token de sesión de Supabase para autenticación
-        const { supabase } = await import('@/lib/supabase-client');
-        const { data: { session } } = await supabase.auth.getSession();
+        const session = await getSupabaseSession();
 
         console.log('🔑 Token de sesión obtenido:', session?.access_token ? 'Sí' : 'No');
 

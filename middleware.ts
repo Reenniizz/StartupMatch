@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createServerClient } from '@supabase/ssr';
 
+// Middleware simplificado sin Supabase para mejor compatibilidad con Edge Runtime
 export async function middleware(request: NextRequest) {
   const response = NextResponse.next();
   
@@ -18,7 +18,7 @@ export async function middleware(request: NextRequest) {
     "style-src 'self' 'unsafe-inline' fonts.googleapis.com",
     "font-src 'self' fonts.gstatic.com",
     "img-src 'self' data: blob:",
-    "connect-src 'self' *.supabase.co",
+    "connect-src 'self' *.supabase.co wss://cbaxjoozbnffrryuywno.supabase.co",
     "media-src 'self'",
     "object-src 'none'",
     "base-uri 'self'",
@@ -37,45 +37,8 @@ export async function middleware(request: NextRequest) {
     return new NextResponse('Too Many Requests', { status: 429 });
   }
   
-  // Auth validation for protected routes
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        get(name: string) {
-          return request.cookies.get(name)?.value
-        },
-        set(name: string, value: string, options: any) {
-          response.cookies.set({
-            name,
-            value,
-            ...options,
-          })
-        },
-        remove(name: string, options: any) {
-          response.cookies.set({
-            name,
-            value: '',
-            ...options,
-          })
-        },
-      },
-    }
-  );
-  const { data: { session } } = await supabase.auth.getSession();
-  
-  const protectedRoutes = ['/dashboard', '/profile', '/settings', '/matches', '/messages', '/projects'];
-  const isProtectedRoute = protectedRoutes.some(route => request.nextUrl.pathname.startsWith(route));
-  
-  // Temporarily disabled for development
-  /*
-  if (isProtectedRoute && !session) {
-    const redirectUrl = new URL('/login', request.url);
-    redirectUrl.searchParams.set('redirect', request.nextUrl.pathname);
-    return NextResponse.redirect(redirectUrl);
-  }
-  */
+  // Nota: La autenticación se maneja ahora en componentes individuales
+  // usando ProtectedRoute o useAuth en lugar del middleware para mejor rendimiento
   
   return response;
 }

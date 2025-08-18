@@ -9,6 +9,7 @@ import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { supabase } from '@/lib/supabase-client';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -160,7 +161,6 @@ export default function CreateProjectPage() {
 
   const createDraftProject = async () => {
     try {
-      const { supabase } = await import('@/lib/supabase-client');
       const { data: sessionData } = await supabase.auth.getSession();
       
       if (!sessionData?.session?.user) {
@@ -294,8 +294,6 @@ export default function CreateProjectPage() {
     
     setIsLoading(true);
     try {
-      const { supabase } = await import('@/lib/supabase-client');
-      
       const updateData = {
         title: formData.title || 'Proyecto Sin Título - Borrador',
         tagline: formData.tagline,
@@ -337,8 +335,6 @@ export default function CreateProjectPage() {
     
     setIsLoading(true);
     try {
-      const { supabase } = await import('@/lib/supabase-client');
-      
       const updateData = {
         title: formData.title,
         tagline: formData.tagline,

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { supabase } from '@/lib/supabase-client';
 
 interface ProjectFile {
   id: string;
@@ -28,7 +29,7 @@ export default function StorageTestPage() {
     try {
       setMessage('🔌 Conectando con Supabase...');
       
-      const { supabase } = await import('@/lib/supabase-client');
+
       const { data, error } = await supabase.auth.getSession();
       
       if (error) {
@@ -62,7 +63,7 @@ export default function StorageTestPage() {
     try {
       setMessage('🏗️ Creando proyecto de prueba...');
       
-      const { supabase } = await import('@/lib/supabase-client');
+
       
       const { data: existingProject } = await supabase
         .from('projects')
@@ -113,7 +114,7 @@ export default function StorageTestPage() {
     if (!projectId) return;
     
     try {
-      const { supabase } = await import('@/lib/supabase-client');
+
       
       const { data: filesData, error } = await supabase
         .from('project_files')
@@ -141,7 +142,7 @@ export default function StorageTestPage() {
     setUploadProgress(0);
 
     try {
-      const { supabase } = await import('@/lib/supabase-client');
+
       
       // Definir el bucket basado en el tipo de archivo
       let bucketName = 'projects';
@@ -218,7 +219,7 @@ export default function StorageTestPage() {
     if (!confirm('¿Eliminar ' + file.file_name + '?')) return;
 
     try {
-      const { supabase } = await import('@/lib/supabase-client');
+
       
       // Eliminar de Storage
       const { error: storageError } = await supabase.storage

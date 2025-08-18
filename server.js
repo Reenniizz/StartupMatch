@@ -17,6 +17,10 @@ app.prepare().then(() => {
   const httpServer = createServer(async (req, res) => {
     try {
       const parsedUrl = parse(req.url, true);
+      
+      // Log para debugging
+      console.log(`📝 Handling request: ${req.method} ${req.url}`);
+      
       await handle(req, res, parsedUrl);
     } catch (err) {
       console.error('Error occurred handling', req.url, err);
@@ -136,21 +140,33 @@ app.prepare().then(() => {
   io.on('connection', (socket) => {
     console.log(`🔌 Nueva conexión Socket.IO: ${socket.id}`);
     
-    // Extraer token del handshake
-    const token = socket.handshake.auth.token || socket.handshake.headers.authorization;
-    console.log(`🔑 Token recibido: ${token ? 'Sí' : 'No'}`);
+    // Extraer token del handshake de forma más robusta
+    const token = socket.handshake.auth?.token || socket.handshake.headers?.authorization;
+    console.log(`🔑 Token presente: ${token ? 'Sí' : 'No'}`);
     
     // Verificar autenticación con el token de Supabase si existe
-    if (token) {
-      // Extraer userId del token si es posible (simplificado)
+    if (token && typeof token === 'string' && token.length > 0) {
       try {
-        const payload = JSON.parse(Buffer.from(token.split('.')[1], 'base64').toString());
-        if (payload.sub) {
-          socket.userId = payload.sub;
-          console.log(`🔑 Token recibido: Sí, UserID: ${payload.sub}`);
+        // Validar que el token tenga el formato correcto (3 partes separadas por punto)
+        const tokenParts = token.replace('Bearer ', '').split('.');
+        if (tokenParts.length === 3 && tokenParts[1]) {
+          const base64Payload = tokenParts[1];
+          // Asegurar padding correcto para base64
+          const paddedPayload = base64Payload + '='.repeat((4 - base64Payload.length % 4) % 4);
+          const payloadString = Buffer.from(paddedPayload, 'base64').toString('utf8');
+          
+          if (payloadString && payloadString.length > 0) {
+            const payload = JSON.parse(payloadString);
+            if (payload.sub) {
+              socket.userId = payload.sub;
+              console.log(`🔑 Token decodificado exitosamente. UserID: ${payload.sub}`);
+            }
+          }
+        } else {
+          console.log('🔑 Token con formato inválido (no es JWT)');
         }
       } catch (e) {
-        console.log('🔑 Token recibido: Sí, pero no se pudo decodificar');
+        console.log(`🔑 Error decodificando token: ${e.message}`);
       }
     }
     
@@ -286,6 +302,13 @@ app.prepare().then(() => {
       console.log(`📖 Usuario ${userId} marcó mensajes como leídos en conversación ${conversationId}`);
       
       try {
+        // Importar Supabase para esta operación
+        const { createClient } = require('@supabase/supabase-js');
+        const supabase = createClient(
+          process.env.NEXT_PUBLIC_SUPABASE_URL,
+          process.env.SUPABASE_SERVICE_ROLE_KEY
+        );
+
         // Actualizar mensajes como leídos en la base de datos
         const { data: updatedMessages, error } = await supabase
           .from('private_messages')

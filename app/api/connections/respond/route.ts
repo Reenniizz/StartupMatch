@@ -24,7 +24,6 @@ export async function PUT(request: NextRequest) {
     );
 
     // También necesitamos el cliente regular para validar auth
-    const { supabase } = await import('@/lib/supabase-client');
 
     // Obtener token de autorización del header
     const authHeader = request.headers.get('Authorization');

@@ -4,6 +4,7 @@
 // ==============================================
 
 import { NextRequest, NextResponse } from 'next/server';
+import { supabase } from '@/lib/supabase-client';
 
 export async function GET(request: NextRequest) {
   try {
@@ -23,7 +24,6 @@ export async function GET(request: NextRequest) {
     );
 
     // También necesitamos el cliente regular para validar auth
-    const { supabase } = await import('@/lib/supabase-client');
 
     // Obtener token de autorización del header
     const authHeader = request.headers.get('Authorization');
