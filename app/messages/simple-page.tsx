@@ -209,19 +209,32 @@ export default function ModernMessagesPage() {
     });
 
     socketConnection.on('message-sent', (data) => {
-      console.log('✅ Mensaje enviado confirmado:', data);
-      setMessages(prev => 
-        prev.map(msg => 
+      console.log('✅ Mensaje enviado confirmado desde servidor:', {
+        messageId: data.messageId,
+        tempId: data.tempId,
+        timestamp: data.timestamp
+      });
+      setMessages(prev => {
+        const updated = prev.map(msg => 
           msg.tempId === data.tempId 
-            ? { ...msg, status: 'sent', id: data.messageId }
+            ? { ...msg, status: 'sent' as const, id: data.messageId, timestamp: data.timestamp }
             : msg
-        )
-      );
+        );
+        console.log('📝 Estado mensajes actualizado tras confirmación');
+        return updated;
+      });
     });
 
     socketConnection.on('message-error', (data) => {
-      console.error('❌ Error enviando mensaje:', data);
-      setMessages(prev => prev.filter(msg => msg.tempId !== data.tempId));
+      console.error('❌ Error enviando mensaje desde servidor:', {
+        error: data.error,
+        tempId: data.tempId
+      });
+      setMessages(prev => {
+        const filtered = prev.filter(msg => msg.tempId !== data.tempId);
+        console.log('🗑️ Mensaje eliminado tras error');
+        return filtered;
+      });
       alert(`Error enviando mensaje: ${data.error}`);
     });
 
@@ -360,7 +373,16 @@ export default function ModernMessagesPage() {
     setNewMessage('');
 
     try {
+      console.log('🚀 Enviando mensaje:', {
+        socket: !!socket,
+        isConnected,
+        socketId: socket?.id,
+        conversationId: selectedConversation.id,
+        message: optimisticMessage.message
+      });
+
       if (socket && isConnected) {
+        console.log('📡 Enviando via Socket.IO...');
         socket.emit('send-message', {
           conversationId: selectedConversation.id,
           message: optimisticMessage.message,
@@ -368,6 +390,7 @@ export default function ModernMessagesPage() {
           tempId
         });
       } else {
+        console.log('📡 Enviando via HTTP API (Socket no conectado)...');
         const response = await fetch('/api/private-messages', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -379,6 +402,7 @@ export default function ModernMessagesPage() {
 
         if (response.ok) {
           const result = await response.json();
+          console.log('✅ Mensaje enviado via API:', result);
           setMessages(prev => 
             prev.map(msg => 
               msg.tempId === tempId 
@@ -391,7 +415,7 @@ export default function ModernMessagesPage() {
         }
       }
     } catch (error) {
-      console.error('Error:', error);
+      console.error('💥 Error enviando mensaje:', error);
       setMessages(prev => prev.filter(msg => msg.tempId !== tempId));
       alert('Error enviando mensaje');
     }

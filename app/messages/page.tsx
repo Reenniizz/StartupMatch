@@ -2,12 +2,7 @@
 
 import React, { Suspense } from 'react';
 import ProtectedRoute from '@/components/ProtectedRoute';
-import dynamic from 'next/dynamic';
-
-// Importar la versión simplificada con Socket.IO
-const SimpleMessagesPage = dynamic(() => import('./simple-page'), {
-  ssr: false
-});
+import SimpleMessagesPage from './simple-page';
 
 // Loading skeleton component
 const MessagesLoadingSkeleton = () => (

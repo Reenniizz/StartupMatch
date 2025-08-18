@@ -453,11 +453,26 @@ function ReactionPicker({
 
 // Utility functions
 function formatMessageTime(timestamp: string): string {
-  const date = new Date(timestamp);
-  return date.toLocaleTimeString('es-ES', { 
-    hour: '2-digit', 
-    minute: '2-digit' 
-  });
+  if (!timestamp) return '--:--';
+  
+  try {
+    const date = new Date(timestamp);
+    
+    // Verificar si la fecha es válida
+    if (isNaN(date.getTime())) {
+      return '--:--';
+    }
+    
+    // Formatear la hora en zona horaria local
+    return date.toLocaleTimeString('es-ES', { 
+      hour: '2-digit', 
+      minute: '2-digit',
+      hour12: false
+    });
+  } catch (error) {
+    console.error('Error formateando hora:', error);
+    return '--:--';
+  }
 }
 
 function formatFileSize(bytes: number): string {

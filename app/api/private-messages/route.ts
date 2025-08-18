@@ -64,7 +64,7 @@ export async function GET(request: NextRequest) {
         id: msg.id,
         sender: msg.sender_id === userId ? 'me' : 'other',
         message: msg.message,
-        timestamp: formatMadridTime(msg.created_at),
+        timestamp: msg.created_at, // Mantener timestamp ISO para consistencia
         status: msg.read_at ? 'read' : (msg.delivered_at ? 'delivered' : 'sent')
       }));
 
@@ -137,7 +137,7 @@ export async function POST(request: NextRequest) {
       id: newMessage.id,
       sender: 'me',
       message: newMessage.message,
-      timestamp: formatMadridTime(newMessage.created_at),
+      timestamp: newMessage.created_at, // Mantener timestamp ISO para consistencia
       status: 'sent',
       socketMessageId // Incluir ID del socket para referencia
     };

@@ -2,6 +2,21 @@ import { NextRequest, NextResponse } from 'next/server';
 
 // Middleware simplificado sin Supabase para mejor compatibilidad con Edge Runtime
 export async function middleware(request: NextRequest) {
+  console.log(`📝 Handling request: ${request.method} ${request.nextUrl.pathname}`);
+  
+  // Handle missing chunk files gracefully
+  if (request.nextUrl.pathname.includes('/_next/static/chunks/') && 
+      request.nextUrl.pathname.includes('_app-pages-browser_lib_supabase-client_ts.js')) {
+    console.log('🔧 Interceptando chunk faltante de supabase-client, devolviendo vacío');
+    return new NextResponse('', {
+      status: 404,
+      headers: {
+        'Content-Type': 'application/javascript',
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+      },
+    });
+  }
+
   const response = NextResponse.next();
   
   // Security Headers
@@ -81,5 +96,6 @@ export const config = {
      * - favicon.ico (favicon file)
      */
     '/((?!api|_next/static|_next/image|favicon.ico).*)',
+    '/_next/static/chunks/:path*', // Include chunk handling for missing files
   ],
 };

@@ -39,6 +39,9 @@ export default function RootLayout({
 }) {
   return (
     <html lang="es">
+      <head>
+        <script src="/chunk-error-fallback.js" defer></script>
+      </head>
       <body className={`${inter.variable} font-sans antialiased`}>
         <AuthProvider>
           <SocketProvider>
