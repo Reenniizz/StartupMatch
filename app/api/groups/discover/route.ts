@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServer } from '@/lib/supabase-server';
 import { formatRelativeTime } from '@/lib/timezone';
 
+// Forzar renderizado dinámico para evitar problemas de static generation
+export const dynamic = 'force-dynamic';
+
 export async function GET(request: NextRequest) {
   try {
     const supabase = await createSupabaseServer();

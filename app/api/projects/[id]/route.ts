@@ -1,5 +1,15 @@
 import { createSupabaseServer } from '@/lib/supabase-server';
 import { NextRequest, NextResponse } from 'next/server';
+import { secureAuthService } from '@/lib/auth-security';
+import { rateLimit } from '@/lib/rate-limiting';
+import { inputValidationService } from '@/lib/input-validation';
+import { getAPISecurityHeaders } from '@/lib/security-headers';
+import { logSecurityEvent } from '@/lib/security-monitoring';
+import { z } from 'zod';
+
+export const dynamic = 'force-dynamic';
+
+const IdParamSchema = z.object({ id: z.string().min(1) });
 
 // GET /api/projects/[id] - Obtener proyecto específico
 export async function GET(
@@ -7,22 +17,34 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
+    const clientIP = request.headers.get('x-forwarded-for') || 'unknown';
+    const rl = await rateLimit.checkLimit(clientIP, 'api_project_id_get', 300, 60000);
+    if (!rl.allowed) {
+      logSecurityEvent('rate_limit', 'medium', 'Rate limit exceeded on project GET', { source: 'project_id', ip: clientIP });
+      return NextResponse.json({ error: 'Demasiadas solicitudes' }, { status: 429, headers: { ...getAPISecurityHeaders(), 'Retry-After': String(rl.retryAfter || 60) } });
+    }
+
     const resolvedParams = await params;
+    const validation = inputValidationService.validate(resolvedParams, IdParamSchema);
+    if (!validation.success) {
+      return NextResponse.json({ error: 'Parámetros inválidos' }, { status: 400, headers: getAPISecurityHeaders() });
+    }
+
     const supabase = await createSupabaseServer();
     
     // Obtener proyecto básico
     const { data: project, error } = await supabase
       .from('projects')
       .select('*')
-      .eq('id', resolvedParams.id)
+      .eq('id', validation.sanitizedData.id)
       .single();
 
     if (error) {
-      if (error.code === 'PGRST116') {
-        return NextResponse.json({ error: 'Project not found' }, { status: 404 });
+      if ((error as any).code === 'PGRST116') {
+        return NextResponse.json({ error: 'Project not found' }, { status: 404, headers: getAPISecurityHeaders() });
       }
-      console.error('Error fetching project:', error);
-      return NextResponse.json({ error: 'Failed to fetch project' }, { status: 500 });
+      logSecurityEvent('system', 'medium', 'DB error fetching project', { source: 'project_id', error: error.message, ip: clientIP });
+      return NextResponse.json({ error: 'Failed to fetch project' }, { status: 500, headers: getAPISecurityHeaders() });
     }
 
     // Obtener información del creador por separado
@@ -33,7 +55,6 @@ export async function GET(
         .select('id, full_name, avatar_url, bio, website, location')
         .eq('id', project.creator_id)
         .single();
-      
       creator = creatorData;
     }
 
@@ -41,10 +62,10 @@ export async function GET(
     const { data: files, error: filesError } = await supabase
       .from('project_files')
       .select('*')
-      .eq('project_id', resolvedParams.id);
+      .eq('project_id', validation.sanitizedData.id);
 
     if (filesError) {
-      console.error('Error fetching project files:', filesError);
+      logSecurityEvent('system', 'low', 'DB error fetching project files', { source: 'project_id', error: filesError.message, ip: clientIP });
     }
 
     // Registrar vista si hay usuario autenticado
@@ -53,7 +74,7 @@ export async function GET(
       await supabase
         .from('project_views')
         .insert({
-          project_id: resolvedParams.id,
+          project_id: validation.sanitizedData.id,
           viewer_id: session.user.id,
           user_agent: request.headers.get('user-agent') || null
         })
@@ -63,7 +84,7 @@ export async function GET(
 
     // Obtener estadísticas del proyecto
     const { data: stats } = await supabase.rpc('get_project_stats', {
-      project_uuid: resolvedParams.id
+      project_uuid: validation.sanitizedData.id
     });
 
     // Verificar si el usuario actual ha dado like
@@ -72,10 +93,9 @@ export async function GET(
       const { data: likeData } = await supabase
         .from('project_likes')
         .select('id')
-        .eq('project_id', resolvedParams.id)
+        .eq('project_id', validation.sanitizedData.id)
         .eq('user_id', session.user.id)
         .single();
-      
       hasLiked = !!likeData;
     }
 
@@ -85,19 +105,19 @@ export async function GET(
       const { data: bookmarkData } = await supabase
         .from('project_bookmarks')
         .select('id')
-        .eq('project_id', resolvedParams.id)
+        .eq('project_id', validation.sanitizedData.id)
         .eq('user_id', session.user.id)
         .single();
-      
       isBookmarked = !!bookmarkData;
     }
+
+    logSecurityEvent('system', 'low', 'Project GET success', { source: 'project_id', projectId: validation.sanitizedData.id, ip: clientIP });
 
     return NextResponse.json({
       project: {
         ...project,
         creator: creator,
         files: files || [],
-        // Extractar project_data desde metadata para retrocompatibilidad
         project_data: project.metadata || {},
         stats: stats?.[0] || {
           total_views: 0,
@@ -110,14 +130,14 @@ export async function GET(
         user_interactions: {
           has_liked: hasLiked,
           is_bookmarked: isBookmarked,
-          is_team_member: false // Simplificar por ahora
+          is_team_member: false
         }
       }
-    });
+    }, { headers: getAPISecurityHeaders() });
 
   } catch (error) {
-    console.error('Error in GET /api/projects/[id]:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    logSecurityEvent('system', 'medium', 'Unexpected error project GET', { source: 'project_id', error: error instanceof Error ? error.message : 'unknown' });
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500, headers: getAPISecurityHeaders() });
   }
 }
 
@@ -127,13 +147,24 @@ export async function PUT(
   { params }: { params: { id: string } }
 ) {
   try {
+    const clientIP = request.headers.get('x-forwarded-for') || 'unknown';
+    const rl = await rateLimit.checkLimit(clientIP, 'api_project_id_put', 50, 60000);
+    if (!rl.allowed) {
+      return NextResponse.json({ error: 'Demasiadas solicitudes' }, { status: 429, headers: { ...getAPISecurityHeaders(), 'Retry-After': String(rl.retryAfter || 60) } });
+    }
+
     const resolvedParams = await params;
+    const validation = inputValidationService.validate(resolvedParams, IdParamSchema);
+    if (!validation.success) {
+      return NextResponse.json({ error: 'Parámetros inválidos' }, { status: 400, headers: getAPISecurityHeaders() });
+    }
+
     const supabase = await createSupabaseServer();
-    
-    // Verificar autenticación
+
+    // Auth
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401, headers: getAPISecurityHeaders() });
     }
 
     const body = await request.json();
@@ -142,11 +173,11 @@ export async function PUT(
     const { data: project, error: projectError } = await supabase
       .from('projects')
       .select('creator_id')
-      .eq('id', resolvedParams.id)
+      .eq('id', validation.sanitizedData.id)
       .single();
 
     if (projectError) {
-      return NextResponse.json({ error: 'Project not found' }, { status: 404 });
+      return NextResponse.json({ error: 'Project not found' }, { status: 404, headers: getAPISecurityHeaders() });
     }
 
     const isCreator = project.creator_id === session.user.id;
@@ -157,7 +188,7 @@ export async function PUT(
       const { data: teamMember } = await supabase
         .from('project_team_members')
         .select('is_admin')
-        .eq('project_id', resolvedParams.id)
+        .eq('project_id', validation.sanitizedData.id)
         .eq('user_id', session.user.id)
         .eq('status', 'active')
         .single();
@@ -166,13 +197,11 @@ export async function PUT(
     }
 
     if (!isCreator && !isAdmin) {
-      return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 });
+      return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403, headers: getAPISecurityHeaders() });
     }
 
     // Actualizar proyecto
     const updateData: any = {};
-    
-    // Solo permitir actualizar ciertos campos
     const allowedFields = [
       'title', 'tagline', 'description', 'detailed_description',
       'category', 'industry', 'stage', 'status', 'visibility',
@@ -193,26 +222,26 @@ export async function PUT(
     }
 
     if (Object.keys(updateData).length === 0) {
-      return NextResponse.json({ error: 'No valid fields to update' }, { status: 400 });
+      return NextResponse.json({ error: 'No valid fields to update' }, { status: 400, headers: getAPISecurityHeaders() });
     }
 
     const { data: updatedProject, error } = await supabase
       .from('projects')
       .update(updateData)
-      .eq('id', resolvedParams.id)
+      .eq('id', validation.sanitizedData.id)
       .select()
       .single();
 
     if (error) {
-      console.error('Error updating project:', error);
-      return NextResponse.json({ error: 'Failed to update project' }, { status: 500 });
+      logSecurityEvent('system', 'medium', 'DB error updating project', { source: 'project_id', error: error.message, ip: clientIP });
+      return NextResponse.json({ error: 'Failed to update project' }, { status: 500, headers: getAPISecurityHeaders() });
     }
 
-    return NextResponse.json({ project: updatedProject });
+    return NextResponse.json({ project: updatedProject }, { headers: getAPISecurityHeaders() });
 
   } catch (error) {
-    console.error('Error in PUT /api/projects/[id]:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    logSecurityEvent('system', 'medium', 'Unexpected error project PUT', { source: 'project_id', error: error instanceof Error ? error.message : 'unknown' });
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500, headers: getAPISecurityHeaders() });
   }
 }
 
@@ -222,45 +251,56 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
+    const clientIP = request.headers.get('x-forwarded-for') || 'unknown';
+    const rl = await rateLimit.checkLimit(clientIP, 'api_project_id_delete', 20, 60000);
+    if (!rl.allowed) {
+      return NextResponse.json({ error: 'Demasiadas solicitudes' }, { status: 429, headers: { ...getAPISecurityHeaders(), 'Retry-After': String(rl.retryAfter || 60) } });
+    }
+
     const resolvedParams = await params;
+    const validation = inputValidationService.validate(resolvedParams, IdParamSchema);
+    if (!validation.success) {
+      return NextResponse.json({ error: 'Parámetros inválidos' }, { status: 400, headers: getAPISecurityHeaders() });
+    }
+
     const supabase = await createSupabaseServer();
-    
-    // Verificar autenticación
+
+    // Auth
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401, headers: getAPISecurityHeaders() });
     }
 
     // Verificar que el usuario es el creador del proyecto
     const { data: project, error: projectError } = await supabase
       .from('projects')
       .select('creator_id')
-      .eq('id', resolvedParams.id)
+      .eq('id', validation.sanitizedData.id)
       .single();
 
     if (projectError) {
-      return NextResponse.json({ error: 'Project not found' }, { status: 404 });
+      return NextResponse.json({ error: 'Project not found' }, { status: 404, headers: getAPISecurityHeaders() });
     }
 
     if (project.creator_id !== session.user.id) {
-      return NextResponse.json({ error: 'Only the project creator can delete this project' }, { status: 403 });
+      return NextResponse.json({ error: 'Only the project creator can delete this project' }, { status: 403, headers: getAPISecurityHeaders() });
     }
 
-    // Eliminar proyecto (cascadea a todas las tablas relacionadas)
+    // Eliminar proyecto
     const { error } = await supabase
       .from('projects')
       .delete()
-      .eq('id', resolvedParams.id);
+      .eq('id', validation.sanitizedData.id);
 
     if (error) {
-      console.error('Error deleting project:', error);
-      return NextResponse.json({ error: 'Failed to delete project' }, { status: 500 });
+      logSecurityEvent('system', 'medium', 'DB error deleting project', { source: 'project_id', error: error.message, ip: clientIP });
+      return NextResponse.json({ error: 'Failed to delete project' }, { status: 500, headers: getAPISecurityHeaders() });
     }
 
-    return NextResponse.json({ message: 'Project deleted successfully' });
+    return NextResponse.json({ message: 'Project deleted successfully' }, { headers: getAPISecurityHeaders() });
 
   } catch (error) {
-    console.error('Error in DELETE /api/projects/[id]:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    logSecurityEvent('system', 'medium', 'Unexpected error project DELETE', { source: 'project_id', error: error instanceof Error ? error.message : 'unknown' });
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500, headers: getAPISecurityHeaders() });
   }
 }

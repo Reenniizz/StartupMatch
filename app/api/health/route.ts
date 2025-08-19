@@ -1,7 +1,7 @@
 // app/api/health/route.ts - Health check endpoint avanzado
 import { NextRequest, NextResponse } from 'next/server';
 import { monitoring } from '@/lib/monitoring';
-import { rateLimiter } from '@/lib/rate-limiting';
+import { rateLimit } from '@/lib/rate-limiting';
 import { logger } from '@/lib/logger';
 import { createClient } from '@supabase/supabase-js';
 
@@ -28,7 +28,7 @@ export async function GET(request: NextRequest) {
     const monitoringStats = monitoring.getSystemStatus();
     
     // Get rate limiting stats
-    const rateLimitStats = rateLimiter.getStats();
+    const rateLimitStats = rateLimit.getStats();
     
     // Get realtime metrics
     const realtimeMetrics = monitoring.getRealtimeMetrics();

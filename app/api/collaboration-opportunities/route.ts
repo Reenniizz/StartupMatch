@@ -1,4 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { createSupabaseServer } from '@/lib/supabase-server';
+
+// Forzar renderizado dinámico para evitar problemas de static generation
+export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
   try {

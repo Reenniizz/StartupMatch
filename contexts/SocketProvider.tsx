@@ -52,7 +52,15 @@ interface SocketProviderProps {
 }
 
 export const SocketProvider: React.FC<SocketProviderProps> = ({ children }) => {
-  const { user } = useAuth();
+  // 🔒 PROTECCIÓN: Manejar errores de useAuth de forma segura
+  let user = null;
+  try {
+    const authContext = useAuth();
+    user = authContext?.user;
+  } catch (error) {
+    console.warn('⚠️ Auth context no disponible, continuando sin usuario:', error);
+  }
+  
   const [socket, setSocket] = useState<Socket | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [onlineUsers, setOnlineUsers] = useState<string[]>([]);
@@ -78,9 +86,9 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({ children }) => {
 
     // Heartbeat cada 30 segundos
     heartbeatIntervalRef.current = setInterval(() => {
-      if (socketInstance.connected) {
+      if (socketInstance.connected && user?.id) {
         lastPingTime.current = Date.now();
-        socketInstance.emit('heartbeat', { userId: user?.id });
+        socketInstance.emit('heartbeat', { userId: user.id });
       }
     }, 30000);
 
@@ -123,6 +131,7 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({ children }) => {
   }, []);
 
   useEffect(() => {
+    // 🔒 PROTECCIÓN: Solo ejecutar si tenemos un usuario válido
     if (!user?.id) {
       // Si no hay usuario, desconectar socket existente
       if (socket) {
@@ -286,7 +295,7 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({ children }) => {
         socket.disconnect();
       }
     };
-  }, [user?.id, startHeartbeat, stopHeartbeat]); // Solo depende del user.id, no del socket
+  }, [user?.id, startHeartbeat, stopHeartbeat]);
 
   const sendMessage = useCallback((data: {
     conversationId: string;

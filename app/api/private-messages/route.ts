@@ -1,24 +1,114 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServer } from '@/lib/supabase-server';
 import { formatMadridTime } from '@/lib/timezone';
-import { requireAuth } from '@/lib/auth-utils';
+import { secureAuthService } from '@/lib/auth-security';
+import { inputValidationService } from '@/lib/input-validation';
+import { rateLimit } from '@/lib/rate-limiting';
+import { sanitizeInput } from '@/lib/xss-protection';
+import { logSecurityEvent } from '@/lib/security-monitoring';
+import { getAPISecurityHeaders } from '@/lib/security-headers';
+import { z } from 'zod';
+
+// Forzar renderizado dinámico para evitar problemas de static generation
+export const dynamic = 'force-dynamic';
+
+// Schema de validación para parámetros de query
+const QuerySchema = z.object({
+  conversationId: z.string().min(1, 'ID de conversación requerido'),
+  after: z.string().optional().transform(val => {
+    if (!val) return undefined;
+    const parsed = parseInt(val);
+    return isNaN(parsed) ? undefined : parsed;
+  })
+});
+
+// Schema de validación para envío de mensajes
+const MessageCreateSchema = z.object({
+  conversationId: z.string().min(1, 'ID de conversación requerido'),
+  message: z.string().min(1, 'Mensaje requerido').max(2000, 'Mensaje muy largo'),
+  socketMessageId: z.string().optional()
+});
 
 export async function GET(request: NextRequest) {
   try {
-    const supabase = await createSupabaseServer();
-    const { searchParams } = new URL(request.url);
-    const conversationId = searchParams.get('conversationId');
-    const afterId = searchParams.get('after'); // Para polling de nuevos mensajes
-
-    // ✅ SECURE AUTHENTICATION: Use getUser() instead of getSession()
-    const user = await requireAuth(request);
-    const userId = user.id;
-
-    if (!conversationId) {
-      return NextResponse.json({ error: 'ID de conversación requerido' }, { status: 400 });
+    // 1. Rate limiting
+    const clientIP = request.headers.get('x-forwarded-for') || 'unknown';
+    const rateLimitResult = await rateLimit.checkLimit(clientIP, 'api_messages_get', 300, 60000);
+    
+    if (!rateLimitResult.allowed) {
+      logSecurityEvent('rate_limit', 'medium', 'Rate limit exceeded for messages GET API', {
+        source: 'messages_api',
+        ip: clientIP,
+        endpoint: '/api/private-messages'
+      });
+      
+      return NextResponse.json({
+        error: 'Demasiadas solicitudes. Intenta de nuevo más tarde.',
+        code: 'RATE_LIMIT_EXCEEDED',
+        retryAfter: rateLimitResult.retryAfter || 60
+      }, { 
+        status: 429,
+        headers: {
+          ...getAPISecurityHeaders(),
+          'Retry-After': (rateLimitResult.retryAfter || 60).toString()
+        }
+      });
     }
 
-    // Verificar que el usuario es parte de la conversación
+    // 2. Validación de entrada
+    const { searchParams } = new URL(request.url);
+    const queryData = {
+      conversationId: searchParams.get('conversationId'),
+      after: searchParams.get('after')
+    };
+
+    const validation = inputValidationService.validate(queryData, QuerySchema);
+    if (!validation.success) {
+      logSecurityEvent('threat', 'medium', 'Invalid input in messages GET API', {
+        source: 'messages_api',
+        errors: validation.errors,
+        ip: clientIP
+      });
+      
+      return NextResponse.json({
+        error: 'Parámetros de entrada inválidos',
+        code: 'INVALID_INPUT',
+        details: validation.errors
+      }, { 
+        status: 400,
+        headers: getAPISecurityHeaders()
+      });
+    }
+
+    const { conversationId, after } = validation.sanitizedData;
+
+    // 3. Autenticación
+    let authContext;
+    try {
+      authContext = await secureAuthService.verifyAuth(request);
+      if (!authContext.user) {
+        throw new Error('Usuario no autenticado');
+      }
+    } catch (authError) {
+      logSecurityEvent('auth', 'medium', 'Authentication failed in messages GET API', {
+        source: 'messages_api',
+        error: authError instanceof Error ? authError.message : 'Unknown auth error',
+        ip: clientIP
+      });
+      
+      return NextResponse.json({
+        error: 'Autenticación requerida',
+        code: 'UNAUTHORIZED'
+      }, { 
+        status: 401,
+        headers: getAPISecurityHeaders()
+      });
+    }
+
+    const userId = authContext.user.id;
+
+    // 4. Verificar que el usuario es parte de la conversación
+    const supabase = await createSupabaseServer();
     const { data: conversation, error: convError } = await supabase
       .from('conversations')
       .select('*')
@@ -27,10 +117,23 @@ export async function GET(request: NextRequest) {
       .single();
 
     if (convError || !conversation) {
-      return NextResponse.json({ error: 'Conversación no encontrada' }, { status: 404 });
+      logSecurityEvent('threat', 'medium', 'Unauthorized conversation access attempt', {
+        source: 'messages_api',
+        conversationId,
+        userId,
+        ip: clientIP
+      });
+      
+      return NextResponse.json({ 
+        error: 'Conversación no encontrada',
+        code: 'NOT_FOUND'
+      }, { 
+        status: 404,
+        headers: getAPISecurityHeaders()
+      });
     }
 
-    // Obtener los mensajes de la conversación (más recientes primero, luego revertir)
+    // 5. Obtener los mensajes de la conversación
     let query = supabase
       .from('private_messages')
       .select(`
@@ -42,56 +145,151 @@ export async function GET(request: NextRequest) {
         delivered_at
       `)
       .eq('conversation_id', conversationId)
-      .order('created_at', { ascending: false }) // Más recientes primero
-      .limit(50); // Limitar a los últimos 50 mensajes
+      .order('created_at', { ascending: false })
+      .limit(50);
 
     // Si hay afterId, solo obtener mensajes nuevos (para polling)
-    if (afterId && !isNaN(Number(afterId))) {
-      query = query.gt('id', Number(afterId));
+    if (after && !isNaN(after)) {
+      query = query.gt('id', after);
     }
 
     const { data: messages, error: messagesError } = await query;
 
     if (messagesError) {
-      console.error('Error getting messages:', messagesError);
-      return NextResponse.json({ error: 'Error al obtener mensajes' }, { status: 500 });
+      logSecurityEvent('system', 'medium', 'Database error getting messages', {
+        source: 'messages_api',
+        error: messagesError.message,
+        ip: clientIP,
+        conversationId
+      });
+      
+      return NextResponse.json({ 
+        error: 'Error al obtener mensajes',
+        code: 'DATABASE_ERROR'
+      }, { 
+        status: 500,
+        headers: getAPISecurityHeaders()
+      });
     }
 
-    // Transformar los datos al formato esperado por el frontend
+    // 6. Transformar y sanitizar los datos
     const formattedMessages = (messages || [])
       .reverse() // Revertir para orden cronológico (más antiguos primero)
       .map((msg: any) => ({
         id: msg.id,
         sender: msg.sender_id === userId ? 'me' : 'other',
-        message: msg.message,
-        timestamp: msg.created_at, // Mantener timestamp ISO para consistencia
+        message: sanitizeInput(msg.message, 'html'), // Sanitizar contenido del mensaje
+        timestamp: msg.created_at,
         status: msg.read_at ? 'read' : (msg.delivered_at ? 'delivered' : 'sent')
       }));
 
-    return NextResponse.json(formattedMessages);
+    // 7. Log de acceso exitoso
+    logSecurityEvent('system', 'low', 'Messages GET API accessed successfully', {
+      source: 'messages_api',
+      conversationId,
+      userId,
+      messagesCount: formattedMessages.length,
+      ip: clientIP
+    });
+
+    return NextResponse.json(formattedMessages, { 
+      headers: getAPISecurityHeaders()
+    });
 
   } catch (error) {
-    console.error('API Error:', error);
-    return NextResponse.json({ error: 'Error interno del servidor' }, { status: 500 });
+    logSecurityEvent('system', 'medium', 'Unexpected error in messages GET API', {
+      source: 'messages_api',
+      error: error instanceof Error ? error.message : 'Unknown error',
+      ip: request.headers.get('x-forwarded-for') || 'unknown'
+    });
+    
+    return NextResponse.json({ 
+      error: 'Error interno del servidor',
+      code: 'INTERNAL_ERROR'
+    }, { 
+      status: 500,
+      headers: getAPISecurityHeaders()
+    });
   }
 }
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = await createSupabaseServer();
+    // 1. Rate limiting más restrictivo para envío de mensajes
+    const clientIP = request.headers.get('x-forwarded-for') || 'unknown';
+    const rateLimitResult = await rateLimit.checkLimit(clientIP, 'api_messages_create', 50, 60000);
     
-    // ✅ SECURE AUTHENTICATION: Use getUser() instead of getSession()
-    const user = await requireAuth(request);
-    const userId = user.id;
-
-    const body = await request.json();
-    const { conversationId, message, socketMessageId } = body;
-
-    if (!conversationId || !message?.trim()) {
-      return NextResponse.json({ error: 'ID de conversación y mensaje son requeridos' }, { status: 400 });
+    if (!rateLimitResult.allowed) {
+      logSecurityEvent('rate_limit', 'medium', 'Rate limit exceeded for messages POST API', {
+        source: 'messages_api',
+        ip: clientIP,
+        endpoint: '/api/private-messages'
+      });
+      
+      return NextResponse.json({
+        error: 'Demasiados mensajes. Intenta de nuevo más tarde.',
+        code: 'RATE_LIMIT_EXCEEDED',
+        retryAfter: rateLimitResult.retryAfter || 60
+      }, { 
+        status: 429,
+        headers: {
+          ...getAPISecurityHeaders(),
+          'Retry-After': (rateLimitResult.retryAfter || 60).toString()
+        }
+      });
     }
 
-    // Verificar que el usuario es parte de la conversación
+    // 2. Autenticación
+    let authContext;
+    try {
+      authContext = await secureAuthService.verifyAuth(request);
+      if (!authContext.user) {
+        throw new Error('Usuario no autenticado');
+      }
+    } catch (authError) {
+      logSecurityEvent('auth', 'medium', 'Authentication failed in messages POST API', {
+        source: 'messages_api',
+        error: authError instanceof Error ? authError.message : 'Unknown auth error',
+        ip: clientIP
+      });
+      
+      return NextResponse.json({
+        error: 'Autenticación requerida',
+        code: 'UNAUTHORIZED'
+      }, { 
+        status: 401,
+        headers: getAPISecurityHeaders()
+      });
+    }
+
+    const userId = authContext.user.id;
+
+    // 3. Validación de entrada
+    const body = await request.json();
+    
+    const validation = inputValidationService.validate(body, MessageCreateSchema);
+    if (!validation.success) {
+      logSecurityEvent('threat', 'medium', 'Invalid input in messages POST API', {
+        source: 'messages_api',
+        errors: validation.errors,
+        ip: clientIP,
+        userId
+      });
+      
+      return NextResponse.json({ 
+        error: 'Datos del mensaje inválidos',
+        code: 'INVALID_INPUT',
+        details: validation.errors
+      }, { 
+        status: 400,
+        headers: getAPISecurityHeaders()
+      });
+    }
+
+    const { conversationId, message, socketMessageId } = validation.sanitizedData;
+
+    // 4. Verificar que el usuario es parte de la conversación
+    const supabase = await createSupabaseServer();
     const { data: conversation, error: convError } = await supabase
       .from('conversations')
       .select('*')
@@ -100,55 +298,112 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (convError || !conversation) {
-      return NextResponse.json({ error: 'Conversación no encontrada' }, { status: 404 });
+      logSecurityEvent('threat', 'medium', 'Unauthorized conversation access attempt in POST', {
+        source: 'messages_api',
+        conversationId,
+        userId,
+        ip: clientIP
+      });
+      
+      return NextResponse.json({ 
+        error: 'Conversación no encontrada',
+        code: 'NOT_FOUND'
+      }, { 
+        status: 404,
+        headers: getAPISecurityHeaders()
+      });
     }
 
-    // Insertar el mensaje
+    // 5. Sanitizar el mensaje antes de insertarlo
+    const sanitizedMessage = sanitizeInput(message.trim(), 'html');
+
+    // 6. Insertar el mensaje
     const { data: newMessage, error: insertError } = await supabase
       .from('private_messages')
       .insert({
         conversation_id: conversationId,
         sender_id: userId,
-        message: message.trim(),
+        message: sanitizedMessage,
         created_at: new Date().toISOString()
       })
       .select()
       .single();
 
     if (insertError) {
-      console.error('Error inserting message:', insertError);
-      return NextResponse.json({ error: 'Error al enviar mensaje' }, { status: 500 });
+      logSecurityEvent('system', 'medium', 'Database error inserting message', {
+        source: 'messages_api',
+        error: insertError.message,
+        ip: clientIP,
+        conversationId,
+        userId
+      });
+      
+      return NextResponse.json({ 
+        error: 'Error al enviar mensaje',
+        code: 'DATABASE_ERROR'
+      }, { 
+        status: 500,
+        headers: getAPISecurityHeaders()
+      });
     }
 
-    // Actualizar la conversación con el último mensaje
+    // 7. Actualizar la conversación con el último mensaje
     const { error: updateError } = await supabase
       .rpc('update_conversation_last_message', {
         conversation_id: conversationId,
-        last_msg: message.trim(),
+        last_msg: sanitizedMessage,
         msg_time: new Date().toISOString()
       });
 
     if (updateError) {
-      console.error('Error updating conversation:', updateError);
+      logSecurityEvent('system', 'low', 'Error updating conversation last message', {
+        source: 'messages_api',
+        error: updateError.message,
+        ip: clientIP,
+        conversationId,
+        userId
+      });
       // No devolver error, el mensaje ya se envió
     }
 
     const messageData = {
       id: newMessage.id,
       sender: 'me',
-      message: newMessage.message,
-      timestamp: newMessage.created_at, // Mantener timestamp ISO para consistencia
+      message: sanitizedMessage,
+      timestamp: newMessage.created_at,
       status: 'sent',
-      socketMessageId // Incluir ID del socket para referencia
+      socketMessageId
     };
+
+    // 8. Log de envío exitoso
+    logSecurityEvent('system', 'low', 'Message sent successfully', {
+      source: 'messages_api',
+      messageId: newMessage.id,
+      conversationId,
+      userId,
+      ip: clientIP
+    });
 
     return NextResponse.json({
       message: 'Mensaje enviado exitosamente',
       messageData
+    }, { 
+      headers: getAPISecurityHeaders()
     });
 
   } catch (error) {
-    console.error('API Error:', error);
-    return NextResponse.json({ error: 'Error interno del servidor' }, { status: 500 });
+    logSecurityEvent('system', 'medium', 'Unexpected error in messages POST API', {
+      source: 'messages_api',
+      error: error instanceof Error ? error.message : 'Unknown error',
+      ip: request.headers.get('x-forwarded-for') || 'unknown'
+    });
+    
+    return NextResponse.json({ 
+      error: 'Error interno del servidor',
+      code: 'INTERNAL_ERROR'
+    }, { 
+      status: 500,
+      headers: getAPISecurityHeaders()
+    });
   }
 }

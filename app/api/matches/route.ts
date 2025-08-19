@@ -10,19 +10,45 @@ import {
   saveCompatibilityCache 
 } from '@/lib/matching-algorithm';
 import { supabase } from '@/lib/supabase-client';
+import { secureAuthService } from '@/lib/auth-security';
+import { rateLimit } from '@/lib/rate-limiting';
+import { inputValidationService } from '@/lib/input-validation';
+import { getAPISecurityHeaders } from '@/lib/security-headers';
+import { logSecurityEvent } from '@/lib/security-monitoring';
+import { z } from 'zod';
+
+// Forzar renderizado dinámico para evitar problemas de static generation
+export const dynamic = 'force-dynamic';
+
+const GetQuerySchema = z.object({
+  userId: z.string().min(1, 'userId parameter is required'),
+  limit: z.string().optional()
+});
 
 export async function GET(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url);
-    const userId = searchParams.get('userId');
-    const limit = parseInt(searchParams.get('limit') || '10');
-
-    if (!userId) {
-      return NextResponse.json(
-        { error: 'userId parameter is required' },
-        { status: 400 }
-      );
+    const clientIP = request.headers.get('x-forwarded-for') || 'unknown';
+    const rl = await rateLimit.checkLimit(clientIP, 'api_matches_get', 100, 60000);
+    if (!rl.allowed) {
+      logSecurityEvent('rate_limit', 'medium', 'Rate limit exceeded on matches GET', { source: 'matches', ip: clientIP });
+      return NextResponse.json({ error: 'Demasiadas solicitudes' }, { status: 429, headers: { ...getAPISecurityHeaders(), 'Retry-After': String(rl.retryAfter || 60) } });
     }
+
+    const { searchParams } = new URL(request.url);
+    const queryData = {
+      userId: searchParams.get('userId'),
+      limit: searchParams.get('limit')
+    };
+
+    // Validar query params
+    const validation = inputValidationService.validate(queryData, GetQuerySchema);
+    if (!validation.success) {
+      logSecurityEvent('threat', 'medium', 'Invalid input for matches GET', { source: 'matches', errors: validation.errors, ip: clientIP });
+      return NextResponse.json({ error: 'Parámetros inválidos' }, { status: 400, headers: getAPISecurityHeaders() });
+    }
+
+    const userId = validation.sanitizedData.userId;
+    const limit = Math.min(Math.max(parseInt(validation.sanitizedData.limit || '10') || 10, 1), 50);
 
     // Obtener perfil del usuario actual
     const currentUser = await getUserProfileWithSkills(userId);
@@ -32,7 +58,7 @@ export async function GET(request: NextRequest) {
         message: 'No hay usuarios disponibles todavía',
         total: 0,
         user_id: userId
-      });
+      }, { headers: getAPISecurityHeaders() });
     }
 
     // Obtener usuarios potenciales usando la función de BD
@@ -44,14 +70,14 @@ export async function GET(request: NextRequest) {
       });
 
     if (error) {
-      console.error('Error getting potential matches:', error);
+      logSecurityEvent('system', 'medium', 'DB error getting potential matches', { source: 'matches', error: error.message, ip: clientIP, userId });
       // No es un error crítico si no hay usuarios, devolvemos lista vacía
       return NextResponse.json({
         matches: [],
         message: 'No hay usuarios disponibles todavía',
         total: 0,
         user_id: userId
-      });
+      }, { headers: getAPISecurityHeaders() });
     }
 
     if (!potentialUsers || potentialUsers.length === 0) {
@@ -60,7 +86,7 @@ export async function GET(request: NextRequest) {
         message: 'No hay usuarios disponibles todavía',
         total: 0,
         user_id: userId
-      });
+      }, { headers: getAPISecurityHeaders() });
     }
 
     // Calcular compatibilidad para cada usuario potencial
@@ -93,7 +119,7 @@ export async function GET(request: NextRequest) {
           calculation_details: compatibility.calculation_details
         };
       } catch (error) {
-        console.error(`Error calculating compatibility for user ${user.user_id}:`, error);
+        logSecurityEvent('system', 'low', 'Error calculating compatibility', { source: 'matches', error: error instanceof Error ? error.message : 'unknown', targetUserId: user.user_id, ip: clientIP });
         return null;
       }
     });
@@ -106,17 +132,19 @@ export async function GET(request: NextRequest) {
       .sort((a, b) => b!.compatibility_score - a!.compatibility_score)
       .slice(0, limit);
 
+    logSecurityEvent('system', 'low', 'Matches GET success', { source: 'matches', userId, count: validMatches.length, ip: clientIP });
+
     return NextResponse.json({
       matches: validMatches,
       total: validMatches.length,
       user_id: userId
-    });
+    }, { headers: getAPISecurityHeaders() });
 
   } catch (error) {
-    console.error('Error in matches API:', error);
+    logSecurityEvent('system', 'medium', 'Unexpected error matches GET', { source: 'matches', error: error instanceof Error ? error.message : 'unknown' });
     return NextResponse.json(
       { error: 'Internal server error' },
-      { status: 500 }
+      { status: 500, headers: getAPISecurityHeaders() }
     );
   }
 }

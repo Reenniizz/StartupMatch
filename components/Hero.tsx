@@ -19,6 +19,12 @@ const Hero = () => {
     "Sales", "Blockchain", "AI/ML", "Mobile Dev", "DevOps"
   ];
 
+  // Safety check to ensure selectedSkills is never undefined
+  const safeSelectedSkills = selectedSkills || [];
+  
+  // Safety check for skills array
+  const safeSkills = skills || [];
+
   const mockMatches = [
     { name: "Ana García", skills: ["React", "UI/UX Design"], match: "95%" },
     { name: "Carlos López", skills: ["Node.js", "DevOps"], match: "89%" },
@@ -37,7 +43,10 @@ const Hero = () => {
 
   useEffect(() => {
     setIsClient(true);
-  }, []);
+    // Debug logging
+    console.log('Hero component mounted, selectedSkills:', selectedSkills);
+    console.log('safeSelectedSkills:', safeSelectedSkills);
+  }, [selectedSkills, safeSelectedSkills]);
 
   useEffect(() => {
     if (searchTerm.length > 2) {
@@ -48,55 +57,56 @@ const Hero = () => {
     }
   }, [searchTerm]);
 
+  // Early return if not client to prevent hydration issues
+  if (!isClient) {
+    return null;
+  }
+
   return (
     <section className="relative min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50 overflow-hidden">
       {/* Animated Background Elements */}
-      {isClient && (
-        <div className="absolute inset-0 opacity-30">
-          {floatingElements.map((element) => (
-            <motion.div
-              key={element.id}
-              className="absolute bg-gradient-to-br from-blue-200 to-green-200 rounded-full blur-xl"
-              style={{
-                width: element.size,
-                height: element.size,
-                left: `${element.left}%`,
-                top: `${element.top}%`,
-              }}
-              animate={{
-                x: [0, 100, 0],
-                y: [0, -100, 0],
-                scale: [1, 1.2, 1],
-              }}
-              transition={{
-                duration: element.duration,
-                delay: element.delay,
-                repeat: Infinity,
-                ease: "easeInOut",
-              }}
-            />
-          ))}
-        </div>
-      )}
+      <div className="absolute inset-0 opacity-30">
+        {floatingElements.map((element) => (
+          <motion.div
+            key={element.id}
+            className="absolute bg-gradient-to-br from-blue-200 to-green-200 rounded-full blur-xl"
+            style={{
+              width: element.size,
+              height: element.size,
+              left: `${element.left}%`,
+              top: `${element.top}%`,
+            }}
+            animate={{
+              x: [0, 100, 0],
+              y: [0, -100, 0],
+              scale: [1, 1.2, 1],
+            }}
+            transition={{
+              duration: element.duration,
+              delay: element.delay,
+              repeat: Infinity,
+              ease: "easeInOut",
+            }}
+          />
+        ))}
+      </div>
 
       {/* Connection Lines Animation - Simplified */}
-      {isClient && (
-        <svg className="absolute inset-0 w-full h-full opacity-20">
-          <path
-            d="M100,200 Q400,100 700,300 T1200,200"
-            stroke="url(#gradient)"
-            strokeWidth="2"
-            fill="none"
-            className="animate-pulse"
-          />
-          <defs>
-            <linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="0%">
-              <stop offset="0%" style={{ stopColor: "#3B82F6" }} />
-              <stop offset="100%" style={{ stopColor: "#10B981" }} />
-            </linearGradient>
-          </defs>
-        </svg>
-      )}
+      <svg className="absolute inset-0 w-full h-full opacity-20">
+        <path
+          d="M100,200 Q400,100 700,300 T1200,200"
+          stroke="url(#gradient)"
+          strokeWidth="2"
+          fill="none"
+          className="animate-pulse"
+        />
+        <defs>
+          <linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" style={{ stopColor: "#3B82F6" }} />
+            <stop offset="100%" style={{ stopColor: "#10B981" }} />
+          </linearGradient>
+        </defs>
+      </svg>
 
       <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-32 pb-16">
         <div className="grid lg:grid-cols-2 gap-12 items-center">
@@ -220,33 +230,48 @@ const Hero = () => {
                     placeholder="Busca habilidades que necesitas..."
                     className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
                     value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
+                    onChange={(e) => {
+                      const value = e?.target?.value || '';
+                      setSearchTerm(value);
+                    }}
                   />
                 </div>
 
-                {/* Skills Tags */}
+                {/* Skills Tags - Simplified for debugging */}
                 <div className="flex flex-wrap gap-2">
-                  {skills.slice(0, 6).map((skill) => (
-                    <motion.button
-                      key={skill}
-                      className={`px-3 py-1.5 rounded-full text-sm font-medium transition-all ${
-                        selectedSkills.includes(skill)
-                          ? "bg-blue-100 text-blue-700"
-                          : "bg-gray-100 text-gray-700 hover:bg-blue-50"
-                      }`}
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.95 }}
-                      onClick={() => {
-                        if (selectedSkills.includes(skill)) {
-                          setSelectedSkills(selectedSkills.filter(s => s !== skill));
-                        } else {
-                          setSelectedSkills([...selectedSkills, skill]);
-                        }
-                      }}
-                    >
-                      {skill}
-                    </motion.button>
-                  ))}
+                  {safeSkills && safeSkills.length > 0 ? (
+                    safeSkills.slice(0, 6).map((skill) => {
+                      if (!skill) return null; // Skip undefined skills
+                      
+                      const isSelected = safeSelectedSkills && safeSelectedSkills.includes(skill);
+                      
+                      return (
+                        <motion.button
+                          key={skill}
+                          className={`px-3 py-1.5 rounded-full text-sm font-medium transition-all ${
+                            isSelected
+                              ? "bg-blue-100 text-blue-700"
+                              : "bg-gray-100 text-gray-700 hover:bg-blue-50"
+                          }`}
+                          whileHover={{ scale: 1.05 }}
+                          whileTap={{ scale: 0.95 }}
+                          onClick={() => {
+                            if (!safeSelectedSkills) return;
+                            
+                            if (isSelected) {
+                              setSelectedSkills(safeSelectedSkills.filter(s => s !== skill));
+                            } else {
+                              setSelectedSkills([...safeSelectedSkills, skill]);
+                            }
+                          }}
+                        >
+                          {skill}
+                        </motion.button>
+                      );
+                    })
+                  ) : (
+                    <div className="text-gray-500">Cargando habilidades...</div>
+                  )}
                 </div>
 
                 {/* Mock Matches */}

@@ -1,7 +1,7 @@
 // app/api/metrics/route.ts - Dashboard de métricas para administradores
 import { NextRequest, NextResponse } from 'next/server';
 import { monitoring } from '@/lib/monitoring';
-import { rateLimiter } from '@/lib/rate-limiting';
+import { rateLimit } from '@/lib/rate-limiting';
 import { logger } from '@/lib/logger';
 import { createClient } from '@supabase/supabase-js';
 
@@ -30,7 +30,7 @@ export async function GET(request: NextRequest) {
     // Get comprehensive system metrics
     const systemStatus = monitoring.getSystemStatus();
     const realtimeMetrics = monitoring.getRealtimeMetrics();
-    const rateLimitStats = rateLimiter.getStats();
+    const rateLimitStats = rateLimit.getStats();
     const memoryUsage = monitoring.getMemoryUsage();
     
     // Database statistics
@@ -187,7 +187,7 @@ export async function POST(request: NextRequest) {
     
     switch (action) {
       case 'clear-rate-limits':
-        rateLimiter.clear();
+        rateLimit.clear();
         logger.info('Rate limits cleared by admin');
         return NextResponse.json({ success: true, message: 'Rate limits cleared' });
         

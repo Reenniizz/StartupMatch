@@ -7,6 +7,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getUserMatches } from '@/lib/matching-algorithm';
 import { supabase } from '@/lib/supabase-client';
 
+// Forzar renderizado dinámico para evitar problemas de static generation
+export const dynamic = 'force-dynamic';
+
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);

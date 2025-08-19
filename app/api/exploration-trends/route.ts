@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 
+// Forzar runtime de Node.js para evitar problemas de static generation
+export const runtime = 'nodejs';
+
 export async function GET(request: NextRequest) {
   try {
     // Mock data para tendencias y análisis del mercado

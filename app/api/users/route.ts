@@ -5,27 +5,117 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase-client';
+import { secureAuthService } from '@/lib/auth-security';
+import { inputValidationService } from '@/lib/input-validation';
+import { rateLimit } from '@/lib/rate-limiting';
+import { sanitizeInput } from '@/lib/xss-protection';
+import { logSecurityEvent } from '@/lib/security-monitoring';
+import { getAPISecurityHeaders } from '@/lib/security-headers';
+import { z } from 'zod';
+
+// Forzar renderizado dinámico para evitar problemas de static generation
+export const dynamic = 'force-dynamic';
+
+// Schema de validación para los parámetros de query
+const QuerySchema = z.object({
+  excludeUserId: z.string().min(1, 'ID de usuario requerido'),
+  limit: z.string().optional()
+});
 
 export async function GET(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url);
-    const currentAuthUserId = searchParams.get('excludeUserId');
-    const limit = parseInt(searchParams.get('limit') || '20');
-
-    console.log('=== API USERS DEBUG (CORREGIDA) ===');
-    console.log('Auth User ID to exclude:', currentAuthUserId);
-    console.log('limit:', limit);
-
-    if (!currentAuthUserId) {
+    // 1. Rate limiting
+    const clientIP = request.headers.get('x-forwarded-for') || 'unknown';
+    const rateLimitResult = await rateLimit.checkLimit(clientIP, 'api_users', 100, 60000);
+    
+    if (!rateLimitResult.allowed) {
+      logSecurityEvent('rate_limit', 'medium', 'Rate limit exceeded for users API', {
+        source: 'users_api',
+        ip: clientIP,
+        endpoint: '/api/users'
+      });
+      
       return NextResponse.json({
-        users: [],
-        message: 'No se proporcionó ID de usuario para excluir',
-        total: 0
+        error: 'Demasiadas solicitudes. Intenta de nuevo más tarde.',
+        code: 'RATE_LIMIT_EXCEEDED',
+        retryAfter: rateLimitResult.retryAfter || 60
+      }, { 
+        status: 429,
+        headers: {
+          ...getAPISecurityHeaders(),
+          'Retry-After': (rateLimitResult.retryAfter || 60).toString()
+        }
       });
     }
 
-    // Obtener todos los perfiles que NO sean del usuario actual
-    // IMPORTANTE: Usar user_id para la comparación, no id
+    // 2. Validación de entrada
+    const { searchParams } = new URL(request.url);
+    const queryData = {
+      excludeUserId: searchParams.get('excludeUserId'),
+      limit: searchParams.get('limit')
+    };
+
+    const validation = inputValidationService.validate(queryData, QuerySchema);
+    if (!validation.success) {
+      logSecurityEvent('threat', 'medium', 'Invalid input in users API', {
+        source: 'users_api',
+        errors: validation.errors,
+        ip: clientIP
+      });
+      
+      return NextResponse.json({
+        error: 'Parámetros de entrada inválidos',
+        code: 'INVALID_INPUT',
+        details: validation.errors
+      }, { 
+        status: 400,
+        headers: getAPISecurityHeaders()
+      });
+    }
+
+    // Validar y procesar el limit manualmente
+    const excludeUserId = validation.sanitizedData.excludeUserId;
+    const limitParam = validation.sanitizedData.limit;
+    const limit = limitParam ? Math.min(Math.max(parseInt(limitParam) || 20, 1), 100) : 20;
+
+    // 3. Autenticación
+    try {
+      const authContext = await secureAuthService.verifyAuth(request);
+      
+      // Verificar que el usuario autenticado coincide con el solicitante
+      if (authContext.user && authContext.user.id !== excludeUserId) {
+        logSecurityEvent('auth', 'medium', 'User ID mismatch in users API', {
+          source: 'users_api',
+          requestedId: excludeUserId,
+          authenticatedId: authContext.user.id,
+          ip: clientIP
+        });
+        
+        return NextResponse.json({
+          error: 'Acceso denegado: ID de usuario no coincide',
+          code: 'FORBIDDEN'
+        }, { 
+          status: 403,
+          headers: getAPISecurityHeaders()
+        });
+      }
+    } catch (authError) {
+      logSecurityEvent('auth', 'medium', 'Authentication failed in users API', {
+        source: 'users_api',
+        error: authError instanceof Error ? authError.message : 'Unknown auth error',
+        ip: clientIP
+      });
+      
+      return NextResponse.json({
+        error: 'Autenticación requerida',
+        code: 'UNAUTHORIZED'
+      }, { 
+        status: 401,
+        headers: getAPISecurityHeaders()
+      });
+    }
+
+    // 4. Obtener perfiles de usuario
     const { data: allProfiles, error: allProfilesError } = await supabase
       .from('user_profiles')
       .select(`
@@ -42,18 +132,22 @@ export async function GET(request: NextRequest) {
         email,
         created_at
       `)
-      .neq('user_id', currentAuthUserId) // Excluir por user_id, no por id
+      .neq('user_id', excludeUserId)
       .limit(limit);
 
-    console.log('Perfiles encontrados (excluyendo current user):', allProfiles?.length || 0);
-    console.log('User IDs encontrados:', allProfiles?.map(u => u.user_id) || []);
-
     if (allProfilesError) {
-      console.error('Error fetching user_profiles:', allProfilesError);
+      logSecurityEvent('system', 'medium', 'Database error in users API', {
+        source: 'users_api',
+        error: allProfilesError.message,
+        ip: clientIP
+      });
+      
       return NextResponse.json({
-        users: [],
-        message: 'Error al obtener perfiles de usuario',
-        total: 0
+        error: 'Error interno del servidor',
+        code: 'DATABASE_ERROR'
+      }, { 
+        status: 500,
+        headers: getAPISecurityHeaders()
       });
     }
 
@@ -62,43 +156,60 @@ export async function GET(request: NextRequest) {
         users: [],
         message: 'No hay otros usuarios disponibles',
         total: 0
+      }, { 
+        headers: getAPISecurityHeaders()
       });
     }
 
-    // Formatear usuarios usando user_id como identificador principal
+    // 5. Formatear y sanitizar datos de respuesta
     const formattedUsers = allProfiles.map((user: any) => ({
-      id: user.user_id, // USAR user_id como ID principal
-      username: user.username || 'usuario',
-      first_name: user.first_name || '',
-      last_name: user.last_name || '',
-      bio: user.bio || 'Sin descripción disponible',
-      role: user.role || 'Usuario',
-      company: user.company || 'Sin empresa',
-      industry: user.industry || 'No especificada',
-      location: user.location || 'Ubicación no especificada',
+      id: user.user_id,
+      username: sanitizeInput(user.username || 'usuario', 'html'),
+      first_name: sanitizeInput(user.first_name || '', 'html'),
+      last_name: sanitizeInput(user.last_name || '', 'html'),
+      bio: sanitizeInput(user.bio || 'Sin descripción disponible', 'html'),
+      role: sanitizeInput(user.role || 'Usuario', 'html'),
+      company: sanitizeInput(user.company || 'Sin empresa', 'html'),
+      industry: sanitizeInput(user.industry || 'No especificada', 'html'),
+      location: sanitizeInput(user.location || 'Ubicación no especificada', 'html'),
       experience_years: user.experience_years || 0,
       email: user.email,
-      skills: [], // Por ahora vacío
-      compatibility_score: Math.floor(Math.random() * 30) + 70, // Score aleatorio para testing
+      skills: [],
+      compatibility_score: Math.floor(Math.random() * 30) + 70,
       created_at: user.created_at,
       source: 'user_profiles'
     }));
 
-    console.log('Usuarios formateados a retornar:', formattedUsers.length);
-    console.log('IDs de usuarios a mostrar:', formattedUsers.map((u: any) => u.id));
+    // 6. Log de acceso exitoso
+    logSecurityEvent('system', 'low', 'Users API accessed successfully', {
+      source: 'users_api',
+      userId: excludeUserId,
+      resultsCount: formattedUsers.length,
+      ip: clientIP
+    });
 
     return NextResponse.json({
       users: formattedUsers,
       total: formattedUsers.length,
       source: 'user_profiles',
-      excluded_user_id: currentAuthUserId
+      excluded_user_id: excludeUserId
+    }, { 
+      headers: getAPISecurityHeaders()
     });
 
   } catch (error) {
-    console.error('Error in users API:', error);
-    return NextResponse.json(
-      { error: 'Internal server error', users: [], total: 0 },
-      { status: 500 }
-    );
+    logSecurityEvent('system', 'medium', 'Unexpected error in users API', {
+      source: 'users_api',
+      error: error instanceof Error ? error.message : 'Unknown error',
+      ip: request.headers.get('x-forwarded-for') || 'unknown'
+    });
+    
+    return NextResponse.json({
+      error: 'Error interno del servidor',
+      code: 'INTERNAL_ERROR'
+    }, { 
+      status: 500,
+      headers: getAPISecurityHeaders()
+    });
   }
 }

@@ -1,20 +1,58 @@
 import { createSupabaseServer } from '@/lib/supabase-server';
 import { NextRequest, NextResponse } from 'next/server';
+import { secureAuthService } from '@/lib/auth-security';
+import { rateLimit } from '@/lib/rate-limiting';
+import { inputValidationService } from '@/lib/input-validation';
+import { getAPISecurityHeaders } from '@/lib/security-headers';
+import { logSecurityEvent } from '@/lib/security-monitoring';
+import { z } from 'zod';
+
+export const dynamic = 'force-dynamic';
+
+const GetQuerySchema = z.object({
+  status: z.string().optional(),
+  limit: z.string().optional(),
+  search: z.string().optional()
+});
+
+const PostSchema = z.object({
+  addresseeId: z.string().min(1, 'ID del destinatario requerido'),
+  message: z.string().optional()
+});
 
 // GET - Obtener todas las conexiones del usuario
 export async function GET(request: NextRequest) {
   try {
-    const supabase = await createSupabaseServer();
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-
-    if (authError || !user) {
-      return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+    const clientIP = request.headers.get('x-forwarded-for') || 'unknown';
+    const rl = await rateLimit.checkLimit(clientIP, 'api_connections_get', 200, 60000);
+    if (!rl.allowed) {
+      logSecurityEvent('rate_limit', 'medium', 'Rate limit exceeded on connections GET', { source: 'connections', ip: clientIP });
+      return NextResponse.json({ error: 'Demasiadas solicitudes' }, { status: 429, headers: { ...getAPISecurityHeaders(), 'Retry-After': String(rl.retryAfter || 60) } });
     }
 
+    const supabase = await createSupabaseServer();
+    
+    // Auth
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) {
+      return NextResponse.json({ error: 'No autorizado' }, { status: 401, headers: getAPISecurityHeaders() });
+    }
+
+    // Validar query params
     const url = new URL(request.url);
-    const status = url.searchParams.get('status') || 'accepted';
-    const limit = parseInt(url.searchParams.get('limit') || '50');
-    const search = url.searchParams.get('search');
+    const queryData = {
+      status: url.searchParams.get('status'),
+      limit: url.searchParams.get('limit'),
+      search: url.searchParams.get('search')
+    };
+    const validation = inputValidationService.validate(queryData, GetQuerySchema);
+    if (!validation.success) {
+      return NextResponse.json({ error: 'Parámetros inválidos' }, { status: 400, headers: getAPISecurityHeaders() });
+    }
+
+    const status = validation.sanitizedData.status || 'accepted';
+    const limit = Math.min(Math.max(parseInt(validation.sanitizedData.limit || '50') || 50, 1), 100);
+    const search = validation.sanitizedData.search;
 
     // Obtener conexiones aceptadas directamente usando cliente de servicio
     const { createClient } = await import('@supabase/supabase-js');
@@ -28,8 +66,6 @@ export async function GET(request: NextRequest) {
         }
       }
     );
-
-    console.log('🚀 GET /api/connections - Obteniendo conexiones del usuario:', user.id);
 
     // Obtener conexiones aceptadas con detalles de perfiles
     const { data: connectionsData, error: connectionsError } = await supabaseService
@@ -48,8 +84,8 @@ export async function GET(request: NextRequest) {
       .order('responded_at', { ascending: false });
 
     if (connectionsError) {
-      console.error('❌ Error obteniendo conexiones:', connectionsError);
-      return NextResponse.json({ error: 'Error al obtener conexiones' }, { status: 500 });
+      logSecurityEvent('system', 'medium', 'DB error fetching connections', { source: 'connections', error: connectionsError.message, ip: clientIP, userId: user.id });
+      return NextResponse.json({ error: 'Error al obtener conexiones' }, { status: 500, headers: getAPISecurityHeaders() });
     }
 
     let filteredConnections: any[] = [];
@@ -77,8 +113,8 @@ export async function GET(request: NextRequest) {
         .in('user_id', otherUserIds);
 
       if (profilesError) {
-        console.error('❌ Error obteniendo perfiles:', profilesError);
-        return NextResponse.json({ error: 'Error al obtener perfiles' }, { status: 500 });
+        logSecurityEvent('system', 'medium', 'DB error fetching profiles', { source: 'connections', error: profilesError.message, ip: clientIP, userId: user.id });
+        return NextResponse.json({ error: 'Error al obtener perfiles' }, { status: 500, headers: getAPISecurityHeaders() });
       }
 
       // Combinar datos de conexiones con perfiles
@@ -99,8 +135,8 @@ export async function GET(request: NextRequest) {
           bio: profile?.bio || '',
           connection_type: conn.connection_type || 'general',
           connected_at: conn.responded_at || conn.created_at,
-          is_online: false, // TODO: Implementar estado online
-          last_message: null, // TODO: Implementar último mensaje
+          is_online: false,
+          last_message: null,
           last_message_at: null
         };
       });
@@ -169,8 +205,7 @@ export async function GET(request: NextRequest) {
 
     stats.weekly_new = weeklyNew?.length || 0;
 
-    console.log(`📊 Estadísticas calculadas para usuario ${user.id}:`, stats);
-    console.log(`✅ ${filteredConnections.length} conexiones encontradas`);
+    logSecurityEvent('system', 'low', 'Connections GET success', { source: 'connections', userId: user.id, count: filteredConnections.length, ip: clientIP });
 
     return NextResponse.json({
       success: true,
@@ -182,13 +217,13 @@ export async function GET(request: NextRequest) {
         search,
         limit
       }
-    });
+    }, { headers: getAPISecurityHeaders() });
 
   } catch (error) {
-    console.error('Error in GET connections:', error);
+    logSecurityEvent('system', 'medium', 'Unexpected error connections GET', { source: 'connections', error: error instanceof Error ? error.message : 'unknown' });
     return NextResponse.json(
       { error: 'Error interno del servidor' },
-      { status: 500 }
+      { status: 500, headers: getAPISecurityHeaders() }
     );
   }
 }
@@ -196,23 +231,34 @@ export async function GET(request: NextRequest) {
 // POST - Crear solicitud de conexión
 export async function POST(request: NextRequest) {
   try {
-    const supabase = await createSupabaseServer();
-    const { addresseeId, message } = await request.json();
-    
-    // Verificar autenticación
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) {
-      return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+    const clientIP = request.headers.get('x-forwarded-for') || 'unknown';
+    const rl = await rateLimit.checkLimit(clientIP, 'api_connections_post', 50, 60000);
+    if (!rl.allowed) {
+      logSecurityEvent('rate_limit', 'medium', 'Rate limit exceeded on connections POST', { source: 'connections', ip: clientIP });
+      return NextResponse.json({ error: 'Demasiadas solicitudes' }, { status: 429, headers: { ...getAPISecurityHeaders(), 'Retry-After': String(rl.retryAfter || 60) } });
     }
 
-    // Validar datos
-    if (!addresseeId) {
-      return NextResponse.json({ error: 'ID del destinatario requerido' }, { status: 400 });
+    const supabase = await createSupabaseServer();
+    
+    // Auth
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) {
+      return NextResponse.json({ error: 'No autorizado' }, { status: 401, headers: getAPISecurityHeaders() });
     }
+
+    // Validar body
+    const body = await request.json();
+    const validation = inputValidationService.validate(body, PostSchema);
+    if (!validation.success) {
+      logSecurityEvent('threat', 'medium', 'Invalid input for connection POST', { source: 'connections', errors: validation.errors, ip: clientIP, userId: user.id });
+      return NextResponse.json({ error: 'Datos inválidos' }, { status: 400, headers: getAPISecurityHeaders() });
+    }
+
+    const { addresseeId, message } = validation.sanitizedData;
 
     // Evitar auto-conexión
     if (user.id === addresseeId) {
-      return NextResponse.json({ error: 'No puedes conectar contigo mismo' }, { status: 400 });
+      return NextResponse.json({ error: 'No puedes conectar contigo mismo' }, { status: 400, headers: getAPISecurityHeaders() });
     }
 
     // Crear solicitud de conexión
@@ -228,16 +274,18 @@ export async function POST(request: NextRequest) {
 
     if (error) {
       if (error.code === '23505') { // Violación de unique constraint
-        return NextResponse.json({ error: 'Ya has enviado una solicitud a este usuario' }, { status: 409 });
+        return NextResponse.json({ error: 'Ya has enviado una solicitud a este usuario' }, { status: 409, headers: getAPISecurityHeaders() });
       }
-      console.error('Error creating connection request:', error);
-      return NextResponse.json({ error: 'Error interno del servidor' }, { status: 500 });
+      logSecurityEvent('system', 'medium', 'DB error creating connection', { source: 'connections', error: error.message, ip: clientIP, userId: user.id });
+      return NextResponse.json({ error: 'Error interno del servidor' }, { status: 500, headers: getAPISecurityHeaders() });
     }
 
-    return NextResponse.json({ connection });
+    logSecurityEvent('system', 'low', 'Connection request created', { source: 'connections', requesterId: user.id, addresseeId, ip: clientIP });
+
+    return NextResponse.json({ connection }, { headers: getAPISecurityHeaders() });
 
   } catch (error) {
-    console.error('Connection request API error:', error);
-    return NextResponse.json({ error: 'Error interno del servidor' }, { status: 500 });
+    logSecurityEvent('system', 'medium', 'Unexpected error connections POST', { source: 'connections', error: error instanceof Error ? error.message : 'unknown' });
+    return NextResponse.json({ error: 'Error interno del servidor' }, { status: 500, headers: getAPISecurityHeaders() });
   }
 }

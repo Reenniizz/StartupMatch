@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServer } from '@/lib/supabase-server';
 
+// Forzar runtime de Node.js para evitar problemas de static generation
+export const runtime = 'nodejs';
+
 export async function GET(request: NextRequest) {
   try {
     const supabase = await createSupabaseServer();

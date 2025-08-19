@@ -1,145 +1,162 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServer } from '@/lib/supabase-server';
-import { requireAuth } from '@/lib/auth-utils';
+import { secureAuthService } from '@/lib/auth-security';
+import { inputValidationService } from '@/lib/input-validation';
+import { rateLimit } from '@/lib/rate-limiting';
+import { logSecurityEvent } from '@/lib/security-monitoring';
+import { getAPISecurityHeaders } from '@/lib/security-headers';
+import { z } from 'zod';
+
+export const dynamic = 'force-dynamic';
+
+const MarkReadPostSchema = z.object({
+	conversationId: z.string().min(1).optional(),
+	messageIds: z.array(z.union([z.number(), z.string()])).optional()
+}).refine((d) => !!d.conversationId || (d.messageIds && d.messageIds.length > 0), {
+	message: 'ID de conversación o IDs de mensajes requeridos'
+});
+
+const MarkReadGetSchema = z.object({
+	conversationId: z.string().optional(),
+	messageId: z.string().optional()
+}).refine((d) => !!d.conversationId || !!d.messageId, {
+	message: 'ID de conversación o mensaje requerido'
+});
 
 /**
  * Mark messages as read
  * Used when user opens/views messages in a conversation
  */
 export async function POST(request: NextRequest) {
-  try {
-    const supabase = await createSupabaseServer();
-    
-    // ✅ SECURE AUTHENTICATION
-    const user = await requireAuth(request);
-    const userId = user.id;
+	try {
+		const clientIP = request.headers.get('x-forwarded-for') || 'unknown';
+		const rl = await rateLimit.checkLimit(clientIP, 'api_messages_mark_read_post', 200, 60000);
+		if (!rl.allowed) {
+			logSecurityEvent('rate_limit', 'medium', 'Rate limit exceeded on mark-read POST', { source: 'messages_mark_read', ip: clientIP });
+			return NextResponse.json({ error: 'Demasiadas solicitudes' }, { status: 429, headers: { ...getAPISecurityHeaders(), 'Retry-After': String(rl.retryAfter || 60) } });
+		}
 
-    const body = await request.json();
-    const { conversationId, messageIds } = body;
+		const supabase = await createSupabaseServer();
 
-    if (!conversationId && (!messageIds || !Array.isArray(messageIds))) {
-      return NextResponse.json({ 
-        error: 'ID de conversación o IDs de mensajes requeridos' 
-      }, { status: 400 });
-    }
+		// Auth
+		const auth = await secureAuthService.verifyAuth(request);
+		if (!auth.user) {
+			return NextResponse.json({ error: 'No autorizado' }, { status: 401, headers: getAPISecurityHeaders() });
+		}
+		const userId = auth.user.id;
 
-    let query = supabase
-      .from('private_messages')
-      .update({ read_at: new Date().toISOString() })
-      .neq('sender_id', userId) // Only mark messages not sent by this user
-      .is('read_at', null); // Only mark unread messages
+		// Validate body
+		const body = await request.json();
+		const validation = inputValidationService.validate(body, MarkReadPostSchema);
+		if (!validation.success) {
+			logSecurityEvent('threat', 'medium', 'Invalid input for mark-read', { source: 'messages_mark_read', errors: validation.errors, ip: clientIP, userId });
+			return NextResponse.json({ error: 'Datos inválidos' }, { status: 400, headers: getAPISecurityHeaders() });
+		}
+		const { conversationId, messageIds } = validation.sanitizedData;
 
-    // Mark specific messages or all messages in conversation
-    if (messageIds && messageIds.length > 0) {
-      query = query.in('id', messageIds);
-      console.log(`📖 Marcando ${messageIds.length} mensajes específicos como leídos para usuario ${userId}`);
-    } else if (conversationId) {
-      query = query.eq('conversation_id', conversationId);
-      console.log(`📖 Marcando todos los mensajes no leídos como leídos en conversación ${conversationId} para usuario ${userId}`);
-    }
+		let query = supabase
+			.from('private_messages')
+			.update({ read_at: new Date().toISOString() })
+			.neq('sender_id', userId)
+			.is('read_at', null);
 
-    const { data: updatedMessages, error: updateError } = await query
-      .select('id, conversation_id, sender_id');
+		if (messageIds && messageIds.length > 0) {
+			query = query.in('id', messageIds);
+		} else if (conversationId) {
+			query = query.eq('conversation_id', conversationId);
+		}
 
-    if (updateError) {
-      console.error('Error marking messages as read:', updateError);
-      return NextResponse.json({ error: 'Error marcando mensajes como leídos' }, { status: 500 });
-    }
+		const { data: updatedMessages, error: updateError } = await query.select('id, conversation_id, sender_id');
+		if (updateError) {
+			logSecurityEvent('system', 'medium', 'DB error mark-read', { source: 'messages_mark_read', error: updateError.message, ip: clientIP, userId });
+			return NextResponse.json({ error: 'Error marcando mensajes' }, { status: 500, headers: getAPISecurityHeaders() });
+		}
 
-    const readCount = updatedMessages?.length || 0;
-    console.log(`✅ ${readCount} mensajes marcados como leídos`);
+		const readCount = updatedMessages?.length || 0;
+		logSecurityEvent('system', 'low', 'Messages marked as read', { source: 'messages_mark_read', count: readCount, userId, ip: clientIP });
 
-    return NextResponse.json({ 
-      success: true,
-      read: readCount,
-      messageIds: updatedMessages?.map(m => m.id) || [],
-      conversationId
-    });
+		return NextResponse.json({
+			success: true,
+			read: readCount,
+			messageIds: updatedMessages?.map(m => m.id) || [],
+			conversationId
+		}, { headers: getAPISecurityHeaders() });
 
-  } catch (error: any) {
-    console.error('Error in mark-read endpoint:', error);
-    
-    if (error.message === 'Authentication required') {
-      return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
-    }
-    
-    return NextResponse.json({ 
-      error: 'Error interno del servidor' 
-    }, { status: 500 });
-  }
+	} catch (error) {
+		logSecurityEvent('system', 'medium', 'Unexpected error mark-read POST', { source: 'messages_mark_read', error: error instanceof Error ? error.message : 'unknown' });
+		return NextResponse.json({ error: 'Error interno del servidor' }, { status: 500, headers: getAPISecurityHeaders() });
+	}
 }
 
 /**
  * Get read status for messages
  */
 export async function GET(request: NextRequest) {
-  try {
-    const supabase = await createSupabaseServer();
-    
-    // ✅ SECURE AUTHENTICATION
-    const user = await requireAuth(request);
-    const userId = user.id;
+	try {
+		const clientIP = request.headers.get('x-forwarded-for') || 'unknown';
+		const rl = await rateLimit.checkLimit(clientIP, 'api_messages_mark_read_get', 300, 60000);
+		if (!rl.allowed) {
+			logSecurityEvent('rate_limit', 'medium', 'Rate limit exceeded on mark-read GET', { source: 'messages_mark_read', ip: clientIP });
+			return NextResponse.json({ error: 'Demasiadas solicitudes' }, { status: 429, headers: { ...getAPISecurityHeaders(), 'Retry-After': String(rl.retryAfter || 60) } });
+		}
 
-    const { searchParams } = new URL(request.url);
-    const conversationId = searchParams.get('conversationId');
-    const messageId = searchParams.get('messageId');
+		const supabase = await createSupabaseServer();
 
-    if (!conversationId && !messageId) {
-      return NextResponse.json({ 
-        error: 'ID de conversación o mensaje requerido' 
-      }, { status: 400 });
-    }
+		// Auth
+		const auth = await secureAuthService.verifyAuth(request);
+		if (!auth.user) {
+			return NextResponse.json({ error: 'No autorizado' }, { status: 401, headers: getAPISecurityHeaders() });
+		}
+		const userId = auth.user.id;
 
-    let query = supabase
-      .from('private_messages')
-      .select('id, delivered_at, read_at, sender_id, created_at');
+		// Validate query
+		const { searchParams } = new URL(request.url);
+		const queryData = { conversationId: searchParams.get('conversationId'), messageId: searchParams.get('messageId') };
+		const validation = inputValidationService.validate(queryData, MarkReadGetSchema);
+		if (!validation.success) {
+			return NextResponse.json({ error: 'Parámetros inválidos' }, { status: 400, headers: getAPISecurityHeaders() });
+		}
+		const { conversationId, messageId } = validation.sanitizedData;
 
-    if (messageId) {
-      query = query.eq('id', messageId);
-    } else if (conversationId) {
-      query = query.eq('conversation_id', conversationId);
-    }
+		let query = supabase
+			.from('private_messages')
+			.select('id, delivered_at, read_at, sender_id, created_at');
 
-    const { data: messages, error: queryError } = await query;
+		if (messageId) {
+			query = query.eq('id', messageId);
+		} else if (conversationId) {
+			query = query.eq('conversation_id', conversationId);
+		}
 
-    if (queryError) {
-      console.error('Error getting read status:', queryError);
-      return NextResponse.json({ error: 'Error obteniendo estado de lectura' }, { status: 500 });
-    }
+		const { data: messages, error: queryError } = await query;
+		if (queryError) {
+			logSecurityEvent('system', 'medium', 'DB error getting read status', { source: 'messages_mark_read', error: queryError.message, ip: clientIP, userId });
+			return NextResponse.json({ error: 'Error obteniendo estado de lectura' }, { status: 500, headers: getAPISecurityHeaders() });
+		}
 
-    // Calculate read statistics
-    const readStats = {
-      total: messages?.length || 0,
-      sent: messages?.filter(m => m.sender_id === userId).length || 0,
-      received: messages?.filter(m => m.sender_id !== userId).length || 0,
-      delivered: messages?.filter(m => m.delivered_at && m.sender_id === userId).length || 0,
-      read: messages?.filter(m => m.read_at && m.sender_id === userId).length || 0,
-      unread: messages?.filter(m => !m.read_at && m.sender_id !== userId).length || 0
-    };
+		const readStats = {
+			total: messages?.length || 0,
+			sent: messages?.filter(m => m.sender_id === userId).length || 0,
+			received: messages?.filter(m => m.sender_id !== userId).length || 0,
+			delivered: messages?.filter(m => m.delivered_at && m.sender_id === userId).length || 0,
+			read: messages?.filter(m => m.read_at && m.sender_id === userId).length || 0,
+			unread: messages?.filter(m => !m.read_at && m.sender_id !== userId).length || 0
+		};
 
-    return NextResponse.json({
-      stats: readStats,
-      messages: messages?.map(m => ({
-        id: m.id,
-        status: m.sender_id === userId ? 
-          (m.read_at ? 'read' : m.delivered_at ? 'delivered' : 'sent') : 
-          (m.read_at ? 'read' : 'unread'),
-        delivered_at: m.delivered_at,
-        read_at: m.read_at,
-        created_at: m.created_at,
-        is_own: m.sender_id === userId
-      }))
-    });
+		return NextResponse.json({
+			stats: readStats,
+			messages: messages?.map(m => ({
+				id: m.id,
+				status: m.sender_id === userId ? (m.read_at ? 'read' : m.delivered_at ? 'delivered' : 'sent') : (m.read_at ? 'read' : 'unread'),
+				delivered_at: m.delivered_at,
+				read_at: m.read_at,
+				created_at: m.created_at,
+				is_own: m.sender_id === userId
+			}))
+		}, { headers: getAPISecurityHeaders() });
 
-  } catch (error: any) {
-    console.error('Error in read status endpoint:', error);
-    
-    if (error.message === 'Authentication required') {
-      return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
-    }
-    
-    return NextResponse.json({ 
-      error: 'Error interno del servidor' 
-    }, { status: 500 });
-  }
+	} catch (error) {
+		logSecurityEvent('system', 'medium', 'Unexpected error mark-read GET', { source: 'messages_mark_read', error: error instanceof Error ? error.message : 'unknown' });
+		return NextResponse.json({ error: 'Error interno del servidor' }, { status: 500, headers: getAPISecurityHeaders() });
+	}
 }

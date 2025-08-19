@@ -1,6 +1,9 @@
 import { createSupabaseServer } from '@/lib/supabase-server';
 import { NextRequest, NextResponse } from 'next/server';
 
+// Forzar renderizado dinámico para evitar problemas de static generation
+export const dynamic = 'force-dynamic';
+
 // GET /api/projects/my - Obtener proyectos del usuario actual
 export async function GET(request: NextRequest) {
   try {

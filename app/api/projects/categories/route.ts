@@ -1,8 +1,11 @@
+import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServer } from '@/lib/supabase-server';
-import { NextResponse } from 'next/server';
+
+// Forzar renderizado dinámico para evitar problemas de static generation
+export const dynamic = 'force-dynamic';
 
 // GET /api/projects/categories - Obtener categorías de proyectos
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     const supabase = await createSupabaseServer();
     

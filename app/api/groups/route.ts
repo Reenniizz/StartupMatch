@@ -1,16 +1,43 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServer } from '@/lib/supabase-server';
 import { formatRelativeTime } from '@/lib/timezone';
+import { secureAuthService } from '@/lib/auth-security';
+import { rateLimit } from '@/lib/rate-limiting';
+import { inputValidationService } from '@/lib/input-validation';
+import { getAPISecurityHeaders } from '@/lib/security-headers';
+import { logSecurityEvent } from '@/lib/security-monitoring';
+import { z } from 'zod';
+
+export const dynamic = 'force-dynamic';
+
+const PostSchema = z.object({
+  name: z.string().min(1, 'Nombre requerido'),
+  description: z.string().min(1, 'Descripción requerida'),
+  category: z.string().optional(),
+  isPrivate: z.boolean().optional(),
+  tags: z.string().optional()
+});
+
+const DeleteQuerySchema = z.object({
+  groupId: z.string().min(1, 'ID de grupo requerido')
+});
 
 export async function GET(request: NextRequest) {
   try {
+    const clientIP = request.headers.get('x-forwarded-for') || 'unknown';
+    const rl = await rateLimit.checkLimit(clientIP, 'api_groups_get', 200, 60000);
+    if (!rl.allowed) {
+      logSecurityEvent('rate_limit', 'medium', 'Rate limit exceeded on groups GET', { source: 'groups', ip: clientIP });
+      return NextResponse.json({ error: 'Demasiadas solicitudes' }, { status: 429, headers: { ...getAPISecurityHeaders(), 'Retry-After': String(rl.retryAfter || 60) } });
+    }
+
     const supabase = await createSupabaseServer();
 
     // Verificar autenticación usando getUser() que es más seguro
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     
     if (authError || !user) {
-      return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+      return NextResponse.json({ error: 'No autorizado' }, { status: 401, headers: getAPISecurityHeaders() });
     }
 
     const userId = user.id;
@@ -20,8 +47,8 @@ export async function GET(request: NextRequest) {
       .rpc('get_user_groups', { for_user_id: userId });
 
     if (error) {
-      console.error('Error getting groups:', error);
-      return NextResponse.json({ error: 'Error al obtener grupos' }, { status: 500 });
+      logSecurityEvent('system', 'medium', 'DB error getting groups', { source: 'groups', error: error.message, ip: clientIP, userId });
+      return NextResponse.json({ error: 'Error al obtener grupos' }, { status: 500, headers: getAPISecurityHeaders() });
     }
 
     // Transformar los datos al formato esperado por el frontend
@@ -30,42 +57,54 @@ export async function GET(request: NextRequest) {
       name: group.group_data?.name || 'Grupo sin nombre',
       description: group.group_data?.description || '',
       avatar: group.group_data?.name ? group.group_data.name.charAt(0).toUpperCase() : 'G',
-      lastMessage: 'Grupo vacío - ¡Sé el primero en escribir!', // TODO: Implementar último mensaje del grupo
+      lastMessage: 'Grupo vacío - ¡Sé el primero en escribir!',
       timestamp: group.last_activity ? formatRelativeTime(group.last_activity) : 'Nuevo',
-      unread: 0, // TODO: Implementar mensajes no leídos del grupo
+      unread: 0,
       memberCount: group.member_count || 0,
       isPrivate: group.group_data?.isPrivate || false,
       type: 'group' as const,
       category: group.group_data?.category || 'General'
     })) || [];
 
-    return NextResponse.json(formattedGroups);
+    logSecurityEvent('system', 'low', 'Groups GET success', { source: 'groups', userId, count: formattedGroups.length, ip: clientIP });
+
+    return NextResponse.json(formattedGroups, { headers: getAPISecurityHeaders() });
 
   } catch (error) {
-    console.error('API Error:', error);
-    return NextResponse.json({ error: 'Error interno del servidor' }, { status: 500 });
+    logSecurityEvent('system', 'medium', 'Unexpected error groups GET', { source: 'groups', error: error instanceof Error ? error.message : 'unknown' });
+    return NextResponse.json({ error: 'Error interno del servidor' }, { status: 500, headers: getAPISecurityHeaders() });
   }
 }
 
 export async function POST(request: NextRequest) {
   try {
+    const clientIP = request.headers.get('x-forwarded-for') || 'unknown';
+    const rl = await rateLimit.checkLimit(clientIP, 'api_groups_post', 50, 60000);
+    if (!rl.allowed) {
+      logSecurityEvent('rate_limit', 'medium', 'Rate limit exceeded on groups POST', { source: 'groups', ip: clientIP });
+      return NextResponse.json({ error: 'Demasiadas solicitudes' }, { status: 429, headers: { ...getAPISecurityHeaders(), 'Retry-After': String(rl.retryAfter || 60) } });
+    }
+
     const supabase = await createSupabaseServer();
 
     // Verificar autenticación usando getUser() que es más seguro
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     
     if (authError || !user) {
-      return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+      return NextResponse.json({ error: 'No autorizado' }, { status: 401, headers: getAPISecurityHeaders() });
     }
 
     const userId = user.id;
     const body = await request.json();
-    const { name, description, category, isPrivate, tags } = body;
-
-    // Validar datos requeridos
-    if (!name || !description) {
-      return NextResponse.json({ error: 'Nombre y descripción son requeridos' }, { status: 400 });
+    
+    // Validar body
+    const validation = inputValidationService.validate(body, PostSchema);
+    if (!validation.success) {
+      logSecurityEvent('threat', 'medium', 'Invalid input for groups POST', { source: 'groups', errors: validation.errors, ip: clientIP, userId });
+      return NextResponse.json({ error: 'Datos inválidos' }, { status: 400, headers: getAPISecurityHeaders() });
     }
+
+    const { name, description, category, isPrivate, tags } = validation.sanitizedData;
 
     // Crear el grupo
     const { data: group, error: createError } = await supabase
@@ -82,8 +121,8 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (createError) {
-      console.error('Error creating group:', createError);
-      return NextResponse.json({ error: 'Error al crear el grupo' }, { status: 500 });
+      logSecurityEvent('system', 'medium', 'DB error creating group', { source: 'groups', error: createError.message, ip: clientIP, userId });
+      return NextResponse.json({ error: 'Error al crear el grupo' }, { status: 500, headers: getAPISecurityHeaders() });
     }
 
     // Agregar al usuario como miembro y admin del grupo
@@ -97,10 +136,11 @@ export async function POST(request: NextRequest) {
       });
 
     if (membershipError) {
-      console.error('Error adding user to group:', membershipError);
-      // El grupo ya se creó, pero falló agregar la membresía
-      return NextResponse.json({ error: 'Grupo creado pero error al agregar membresía' }, { status: 500 });
+      logSecurityEvent('system', 'medium', 'DB error adding user to group', { source: 'groups', error: membershipError.message, ip: clientIP, userId });
+      return NextResponse.json({ error: 'Grupo creado pero error al agregar membresía' }, { status: 500, headers: getAPISecurityHeaders() });
     }
+
+    logSecurityEvent('system', 'low', 'Group created successfully', { source: 'groups', userId, groupId: group.id, ip: clientIP });
 
     return NextResponse.json({ 
       message: 'Grupo creado exitosamente',
@@ -112,32 +152,43 @@ export async function POST(request: NextRequest) {
         isPrivate: group.is_private,
         tags: group.tags
       }
-    });
+    }, { headers: getAPISecurityHeaders() });
 
   } catch (error) {
-    console.error('API Error:', error);
-    return NextResponse.json({ error: 'Error interno del servidor' }, { status: 500 });
+    logSecurityEvent('system', 'medium', 'Unexpected error groups POST', { source: 'groups', error: error instanceof Error ? error.message : 'unknown' });
+    return NextResponse.json({ error: 'Error interno del servidor' }, { status: 500, headers: getAPISecurityHeaders() });
   }
 }
 
 export async function DELETE(request: NextRequest) {
   try {
+    const clientIP = request.headers.get('x-forwarded-for') || 'unknown';
+    const rl = await rateLimit.checkLimit(clientIP, 'api_groups_delete', 20, 60000);
+    if (!rl.allowed) {
+      logSecurityEvent('rate_limit', 'medium', 'Rate limit exceeded on groups DELETE', { source: 'groups', ip: clientIP });
+      return NextResponse.json({ error: 'Demasiadas solicitudes' }, { status: 429, headers: { ...getAPISecurityHeaders(), 'Retry-After': String(rl.retryAfter || 60) } });
+    }
+
     const supabase = await createSupabaseServer();
 
     // Verificar autenticación usando getUser() que es más seguro
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     
     if (authError || !user) {
-      return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+      return NextResponse.json({ error: 'No autorizado' }, { status: 401, headers: getAPISecurityHeaders() });
     }
 
     const userId = user.id;
     const { searchParams } = new URL(request.url);
-    const groupId = searchParams.get('groupId');
-
-    if (!groupId) {
-      return NextResponse.json({ error: 'ID de grupo requerido' }, { status: 400 });
+    const queryData = { groupId: searchParams.get('groupId') || '' };
+    
+    // Validar query params
+    const validation = inputValidationService.validate(queryData, DeleteQuerySchema);
+    if (!validation.success) {
+      return NextResponse.json({ error: 'Parámetros inválidos' }, { status: 400, headers: getAPISecurityHeaders() });
     }
+
+    const groupId = validation.sanitizedData.groupId;
 
     // Verificar que el usuario sea admin del grupo o el creador
     const { data: membership, error: membershipError } = await supabase
@@ -148,7 +199,7 @@ export async function DELETE(request: NextRequest) {
       .single();
 
     if (membershipError || !membership) {
-      return NextResponse.json({ error: 'No eres miembro de este grupo' }, { status: 403 });
+      return NextResponse.json({ error: 'No eres miembro de este grupo' }, { status: 403, headers: getAPISecurityHeaders() });
     }
 
     // Verificar que sea admin o owner del grupo
@@ -159,12 +210,12 @@ export async function DELETE(request: NextRequest) {
       .single();
 
     if (groupError || !group) {
-      return NextResponse.json({ error: 'Grupo no encontrado' }, { status: 404 });
+      return NextResponse.json({ error: 'Grupo no encontrado' }, { status: 404, headers: getAPISecurityHeaders() });
     }
 
     // Solo el creador o admin puede eliminar el grupo
     if (group.created_by !== userId && membership.role !== 'admin') {
-      return NextResponse.json({ error: 'No tienes permisos para eliminar este grupo' }, { status: 403 });
+      return NextResponse.json({ error: 'No tienes permisos para eliminar este grupo' }, { status: 403, headers: getAPISecurityHeaders() });
     }
 
     // Eliminar todos los mensajes del grupo
@@ -174,7 +225,7 @@ export async function DELETE(request: NextRequest) {
       .eq('group_id', groupId);
 
     if (messagesError) {
-      console.error('Error deleting group messages:', messagesError);
+      logSecurityEvent('system', 'low', 'Error deleting group messages', { source: 'groups', error: messagesError.message, ip: clientIP, userId });
     }
 
     // Eliminar todas las membresías del grupo
@@ -184,7 +235,7 @@ export async function DELETE(request: NextRequest) {
       .eq('group_id', groupId);
 
     if (membershipsError) {
-      console.error('Error deleting group memberships:', membershipsError);
+      logSecurityEvent('system', 'low', 'Error deleting group memberships', { source: 'groups', error: membershipsError.message, ip: clientIP, userId });
     }
 
     // Eliminar el grupo
@@ -194,14 +245,16 @@ export async function DELETE(request: NextRequest) {
       .eq('id', groupId);
 
     if (deleteError) {
-      console.error('Error deleting group:', deleteError);
-      return NextResponse.json({ error: 'Error al eliminar grupo' }, { status: 500 });
+      logSecurityEvent('system', 'medium', 'DB error deleting group', { source: 'groups', error: deleteError.message, ip: clientIP, userId });
+      return NextResponse.json({ error: 'Error al eliminar grupo' }, { status: 500, headers: getAPISecurityHeaders() });
     }
 
-    return NextResponse.json({ message: 'Grupo eliminado exitosamente' });
+    logSecurityEvent('system', 'low', 'Group deleted successfully', { source: 'groups', userId, groupId, ip: clientIP });
+
+    return NextResponse.json({ message: 'Grupo eliminado exitosamente' }, { headers: getAPISecurityHeaders() });
 
   } catch (error) {
-    console.error('API Error:', error);
-    return NextResponse.json({ error: 'Error interno del servidor' }, { status: 500 });
+    logSecurityEvent('system', 'medium', 'Unexpected error groups DELETE', { source: 'groups', error: error instanceof Error ? error.message : 'unknown' });
+    return NextResponse.json({ error: 'Error interno del servidor' }, { status: 500, headers: getAPISecurityHeaders() });
   }
 }
